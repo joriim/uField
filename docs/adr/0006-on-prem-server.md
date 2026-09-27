@@ -1,12 +1,12 @@
-# 0006 — On-premises self-hosted ufield-server for advisory firms and modern farms
+# 0006 — Own ufield-server, wired or virtual, for advisory firms and modern farms
 
-- Status: proposed
+- Status: accepted with ADR 0004 decision B, 2026-09-27
 - Date: 2026-09-27
 - Builds on: ADR 0004 (user-owned data), ADR 0005 (P2P public layers)
 
 ## Context
 
-The main professional users are **consulting and advisory firms and modern farms**. They will run self-hosted ufield-server on their own NAS plus a GPU machine, connected to the internet over fibre. That makes the self-hosted server (ADR 0004, mode 3) the **primary professional deployment**, not an edge case. It also means the GPU products deferred from the MVP (orthomosaic, 3DGS, super-resolution) can run on the customer's own hardware without Biomitta hosting anything.
+The main professional users are **consulting and advisory firms and modern farms**. They will run ufield-server (profile `self-hosted`) either **wired** (their own NAS plus a GPU machine, connected over fibre) or **virtual** (a VPS or cloud VM). That makes the own server (ADR 0004, options 2 and 3) the **primary professional deployment**; phone-only users use the Biomitta service instead. It also means the GPU products deferred from the MVP (orthomosaic, 3DGS, super-resolution) can run on the customer's own hardware without Biomitta hosting anything.
 
 ## Decision
 
@@ -77,6 +77,23 @@ Mergin Maps CE has **one workspace**; multiple workspaces are an Enterprise Edit
   - *OpenDroneMap:* AGPL-3.0. Running it unmodified on the customer's server is fine; if Biomitta modifies it and offers it over a network, the modified source must be published.
   - *LLM weights:* prefer Apache-2.0/MIT models, and record the licence of whichever model is configured.
 - The capture-fidelity rule (full EXIF, GNSS quality, orientation, video pose track) exists so that these workers get good input.
+
+### 6. Virtual server (VPS or cloud VM)
+
+For firms without on-site hardware, or with several sites. It's the same Compose stack and profile.
+
+| Part | Wired (§1) | Virtual |
+|---|---|---|
+| Storage | NAS with snapshots | VM block storage for databases; S3-compatible object storage for the photo, drone and STAC archive; provider snapshots |
+| Compute | GPU machine that sleeps | A CPU VM for `core` + `ai` (small models or an external API) + `ops`, always on. **GPU on demand:** the job runner starts a GPU VM for product jobs and stops it afterwards, so GPU hours are only paid while a job runs |
+| Network | WireGuard mesh, no open ports | Public IP available, but the same default: mesh for the app and admin; only the reverse proxy (HTTPS) is public, and only if needed. Never expose Mergin CE admin or database ports |
+| Backups | NAS snapshot + encrypted offsite | Provider snapshots + encrypted copy **at a different provider or on site** (restic), so one provider failure isn't a total loss |
+
+- **Hosting location and law:** choose an EU (ideally Finnish) region. The hosting provider is the organisation's processor, so a data processing agreement with it is needed. Pick providers with a clear DPA and EU data residency.
+- **Large uploads** (drone image sets) go directly from the office or farm network to object storage, not through the phone.
+- **Cost profile:** a small always-on CPU VM plus pay-per-use GPU suits firms with occasional drone and 3D jobs. Continuous heavy GPU use is cheaper on the wired option.
+- **Hybrid wired + virtual:** a firm can run a wired server at the office and a small virtual server as an offsite backup and remote-access point, linked with Syncthing (encrypted) or Mergin CE project sync.
+- **Managed option:** Biomitta can install and maintain the VM *in the customer's own cloud account* under a support contract. The customer stays the data controller and the account owner.
 
 ## Consequences
 

@@ -1,18 +1,21 @@
 # Licence and compliance analysis: μField (uGIS)
 
-Status: research draft, 2026-09-27; updated the same day for self-hosting (ADR 0004), peer-to-peer sharing (ADR 0005) and on-prem servers (ADR 0006). Put at `docs/licensing.md`.
+Status: research draft, 2026-09-27; updated the same day for ADR 0004 decision B (Biomitta service for phone-only users + own wired or virtual servers), peer-to-peer sharing (ADR 0005) and on-prem servers (ADR 0006). Put at `docs/licensing.md`.
 This is a practical engineering analysis, not legal advice. Have a lawyer review sections 1.3, 3 and 4 before the public Google Play release.
 
 ## Summary
 
 1. **The upstream code is GPL-2.0-or-later, not GPL-3.0.** Mergin Maps mobile's source headers say "version 2 of the License, or (at your option) any later version", and the licence file is GPLv2. Because the app also bundles Qt (LGPLv3) and Apache-2.0 libraries, the finished μField app can only be distributed under **GPL-3.0**. That's allowed by "or later" and matches what we planned.
 2. **Publish the exact source of every Play release.** Tag each release in the public GitHub repo, include the licence and third-party notices inside the app, and link to the source from the app and the store listing.
-3. **Keep proprietary Google SDKs out of the app if you can.** Google Play Services (the usual Google sign-in library) is closed source and is not a "system library" under the GPL. With self-hosting there are no μField accounts: "Connect Google Drive" uses AppAuth (open source) on Biomitta's public OAuth client ID, plus plain REST calls to Drive (section 1.3).
+3. **Keep proprietary Google SDKs out of the app if you can.** Google Play Services (the usual Google sign-in library) is closed source and is not a "system library" under the GPL. Biomitta-service sign-in goes through ufield-server (Google web OAuth client + App Link), and "Connect Google Drive" uses AppAuth (open source) on the device, plus plain REST calls to Drive. Neither needs Play Services (section 1.3).
 4. **Don't use the Mergin Maps or Peltomappi names or logos.** Mentioning them in the credits ("based on Mergin Maps mobile") is fine. Register μField yourself; a quick search found no app with that name, but that's not a trademark search.
 5. **All the national data sources are CC BY 4.0, except one GTK licence tier.** The obligation is attribution, and the app must carry it automatically through the map screen, exports and Farm Packs. GTK's "basic licence" layers forbid commercial and public-service use, so they must not be in the app.
 6. **Field parcel data can be personal data.** In 2019 Ruokavirasto shut down Peltolohkot.fi for publishing parcel data too freely; it reopened only after location search was removed. μField must not let users browse or search other farmers' parcels and identifiers at scale. Showing parcels on a map for the user's own farm is fine.
-7. **Paid imagery licences are per licensee.** For Planet and UP42 data, only irreversible derived products can normally be shared. With self-hosting the user buys directly and is the licensee, so Biomitta doesn't need reseller terms.
-8. **Self-hosting shrinks Biomitta's duties.** Biomitta holds no user data, so it's not the GDPR controller or processor of field data; each user is controller of their own. Still needed: basic Google OAuth verification for `drive.file`, a privacy policy explaining where the app sends data, and the Play Data safety form. Play counts data sent even to the user's own storage as "collected". Play's account-deletion rule doesn't apply while there are no μField accounts.
+7. **Paid imagery licences are per licensee.** For Planet and UP42 data, only irreversible derived products can normally be shared. Organisations with their own server buy directly and are the licensee. The Biomitta service offers no paid imagery until Biomitta has partner or reseller terms.
+8. **Biomitta's duties depend on the profile (ADR 0004 decision B).**
+   - **Biomitta service** (phone-only users): Biomitta is the controller. It needs a privacy policy, a record of processing activities, data processing agreements with Anthropic, the STT provider and the EU hosting provider, data minimisation, and account deletion in the app and on the web.
+   - **Own wired or virtual servers:** nothing reaches Biomitta; the organisation is the controller.
+   - **Both:** Google OAuth verification (identity sign-in and `drive.file`) and a Play Data safety form. Play counts data sent even to the user's own server as "collected".
 9. **Peer-to-peer sharing of public layers is allowed** for CC BY and Copernicus data, as long as attribution travels with the packages. Parcel attributes, GTK basic-licence layers, paid imagery and user data must never be shared, and peers see each other's IP addresses (section 3.5).
 
 ---
@@ -57,7 +60,10 @@ This is a practical engineering analysis, not legal advice. Have a lawyer review
 
 The GPL requires that the complete source of everything linked into the app be available, except "System Libraries". Google Play Services, Firebase, Crashlytics and the Play Integrity and Play Billing libraries are closed source and not system libraries. Adding them to a GPL program whose copyright you don't fully own (Lutra and the other contributors hold most of it) is a licence violation risk.
 
-- **Chosen for self-hosting (ADR 0004): option B.** It needs no Biomitta server. Keep the SAF route through the Drive app as the fallback if Google removes custom schemes.
+- **Chosen (ADR 0004 decision B):**
+  - **Service sign-in (identity):** option A, through Biomitta's ufield-server.
+  - **Own servers:** their own users (local accounts or the organisation's OIDC).
+  - **Google Drive connection (both):** option B, on the device, so Drive tokens never reach any server. Keep the SAF route through the Drive app as the fallback if Google removes custom schemes.
 - **Google sign-in: there's no perfect option, so choose deliberately.** Since October 2023, new Android OAuth clients can't use custom URI scheme redirects by default, and Google points developers to its Google Identity Services SDK, which depends on Play Services. The options are:
   - **A. Sign-in through our server (recommended):** a Google *web* OAuth client with an https redirect to μField's server, then an Android App Link back into the app. All the code involved is open source (AppAuth, Apache-2.0, or a Custom Tab). The trade-off is that the server holds the user's Drive refresh token, so it must be encrypted and covered in the privacy policy.
   - **B. AppAuth with custom-scheme redirects re-enabled** in the OAuth client's advanced settings. It works today, but Google discourages it and may remove it.
@@ -114,13 +120,11 @@ Ruokavirasto now publishes the parcel data itself as open CC BY 4.0 data without
 
 μField processes location, photos (EXIF and GNSS), video with a pose track, voice recordings, notes and the Google account e-mail.
 
-- **Controller (self-hosting, ADR 0004):** Biomitta receives no user data, so it is **neither controller nor processor** for field data, photos, voice or locations. Each user, whether farm, contractor or adviser, is the controller of their own data. Purely personal use is exempt from GDPR.
-- **Still needed from Biomitta:**
-  - a privacy policy in Finnish and English saying what the app sends where: the user's chosen storage, the external data sources (which see the user's IP address and requested area), Google/Microsoft during OAuth, the user's own LLM endpoint, and peers if sharing is on
-  - no telemetry by default
-  - voice audio deleted after transcription unless the user keeps it
-- **LLM and speech-to-text:** configured by the user, either their own server (Ollama, Whisper) or their own API key with a provider. The user's agreement with that provider applies. Recommend providers whose API terms exclude training on customer data.
-- **If Biomitta ever offers hosting or processing** (a managed server, GPU products), it becomes a processor for that service, which needs a data processing agreement and a record of processing activities.
+- **Biomitta service (phone-only users):** Biomitta is the **controller** for accounts and the processing it does: sign-in, Farm Pack jobs, voice audio and transcripts, agent requests.
+  - Needed: a privacy policy in Finnish and English; a record of processing activities; data processing agreements with Anthropic (API terms that exclude training on customer data), the speech-to-text provider and the hosting provider (EU region).
+  - **Minimise:** no project data stored on the service; audio deleted after transcription; transcripts and agent context not kept beyond the request; Farm Pack outputs deleted after delivery or a short retention period; no telemetry by default.
+- **Own wired or virtual servers:** Biomitta receives nothing. The organisation is the controller (or the farm's processor, ADR 0006 §4). Its hosting provider is its processor. Its own LLM or STT provider, if any, is under its own agreement.
+- **Managed servers:** if Biomitta installs and maintains a server in the customer's own cloud account under a support contract, Biomitta has access and acts as the customer's processor, so a data processing agreement is needed.
 - **Users connecting their own LLM client over MCP** (Claude, ChatGPT, …): the data goes to *that* provider under the *user's* own agreement. Show a clear notice when an external MCP client is authorised, and let the user scope it to one project.
 - **Professional users** (contractors, advisers) who record data about other people's farms are controllers of that data themselves. Say so in the terms of use.
 
@@ -132,8 +136,8 @@ Ruokavirasto now publishes the parcel data itself as open CC BY 4.0 data without
 
 ### 3.4 Google Play
 
-- A privacy policy URL and a complete **Data safety** form. Play defines collection as *any* transmission off the device, with no exemption for the user's own server. So declare location, photos/videos, audio and files as collected, and explain "sent only to the storage the user selects". Mark them not shared, because each transfer is user-initiated. With P2P in `group`/`public` scope, declare the IP address and region as shared with other users.
-- **Account deletion:** not required while μField has no developer-side accounts. It would apply to any future Biomitta-hosted service.
+- A privacy policy URL and a complete **Data safety** form. Play defines collection as *any* transmission off the device, with no exemption for the user's own server. So declare location, photos/videos, audio and files as collected. For the Biomitta service, list what goes there and name Anthropic and the STT provider as processors; for own storage and own servers, explain "sent only to the storage or server the user selects". Mark them not shared, because each transfer is user-initiated. With P2P in `group`/`public` scope, declare the IP address and region as shared with other users.
+- **Account deletion:** required, because the Biomitta service creates accounts. The app needs a delete-account path and there must be a web page, and deleting an account removes all of that user's service data. Own-server accounts are the organisation's responsibility.
 - **P2P transfers** on Android run as a foreground service of type `dataSync`, which must be declared in Play Console.
 - **Location permission:** foreground only for the MVP. Background location needs a Play declaration and justification (`docs/play-policy.md`).
 - Target API 36.
@@ -143,7 +147,7 @@ Ruokavirasto now publishes the parcel data itself as open CC BY 4.0 data without
 - **GPU workers and model weights:** only commercially usable licences (MIT, BSD, Apache-2.0, GPL, AGPL run unmodified). Excluded as non-commercial: the original Inria 3D Gaussian Splatting code, DUSt3R/MASt3R (CC BY-NC-SA 4.0), non-commercial VGGT weights. Use gsplat/nerfstudio (Apache-2.0) instead. OpenDroneMap is AGPL-3.0: fine unmodified on the customer's server; modified versions offered over a network need their source published. Record each worker's and model's licence in STAC provenance.
 - **Mergin Maps CE vs EE:** CE has one workspace; multiple workspaces are EE-only (commercial). Tenant-per-CE-instance (ADR 0006 option A) stays within CE's AGPL licence.
 - **Advisory firms** handling a farm's data are either the farm's processor (data processing agreement needed) or a controller for their own advisory records. μField's tenant export and deletion support the farm's rights to take its data and have it erased.
-- **Biomitta as a consultancy** running its own self-hosted ufield-server is a normal controller or processor for its clients' data. That's separate from its role as app publisher, where it still holds no user data.
+- **Biomitta as a consultancy** running its own self-hosted ufield-server is a normal controller or processor for its clients' data. That's separate from its roles as app publisher and as operator of the Biomitta service.
 
 ### 3.5 Peer-to-peer sharing of public layers (ADR 0005)
 
