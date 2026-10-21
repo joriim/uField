@@ -33,10 +33,11 @@
         android:largeScreens="true"
         android:normalScreens="true"
         android:smallScreens="true" />
+    <!-- UFIELD: app and camera labels are μField; file provider authority follows the applicationId -->
     <application 
         android:name="org.qtproject.qt.android.bindings.QtApplication"
         android:hardwareAccelerated="true"
-        android:label="Mergin Maps"
+        android:label="μField"
         android:allowBackup="true"
         android:fullBackupOnly="false"
         android:icon="@mipmap/ic_appicon"
@@ -60,14 +61,7 @@
                  <action android:name="android.intent.action.GET_CONTENT" />
             </intent-filter>
 
-            <intent-filter android:autoVerify="true">
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:scheme="https" />
-                <data android:host="hello.merginmaps.com" />
-                <data android:pathPrefix="/mobile/sso-redirect" />
-            </intent-filter>
+            <!-- UFIELD: removed the hello.merginmaps.com SSO deep link; μField must not claim Mergin Maps' web links -->
 
             <meta-data
                 android:name="android.app.lib_name" 
@@ -81,7 +75,7 @@
         <!-- Activity Android native camera -->
         <activity
             android:name="uk.co.lutraconsulting.CameraActivity"
-            android:label="Mergin Maps"
+            android:label="μField"
             android:parentActivityName="uk.co.lutraconsulting.MMActivity"
             android:configChanges="screenLayout|orientation|screenSize"
             >
@@ -90,7 +84,7 @@
 
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="uk.co.lutraconsulting.fileprovider"
+            android:authorities="${applicationId}.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true"
             >

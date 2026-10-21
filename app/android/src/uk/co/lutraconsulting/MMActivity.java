@@ -187,7 +187,7 @@ public class MMActivity extends QtActivity
 
     try 
     {
-      Uri fileUri = FileProvider.getUriForFile( this, "uk.co.lutraconsulting.fileprovider", file );
+      Uri fileUri = FileProvider.getUriForFile( this, getPackageName() + ".fileprovider" /* UFIELD: authority follows the applicationId */, file );
 
       showFileIntent.setData( fileUri );
 

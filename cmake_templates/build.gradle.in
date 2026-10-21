@@ -83,6 +83,8 @@ android {
     }
 
     defaultConfig {
+        // UFIELD: μField's identity on Play and devices; Java classes keep upstream's namespace
+        applicationId 'fi.biomitta.ufield'
         resConfig "en"
         minSdkVersion qtMinSdkVersion
         targetSdkVersion qtTargetSdkVersion

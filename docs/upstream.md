@@ -23,6 +23,14 @@ Keep this list complete; it is the checklist for every upstream merge.
 | File | Change | Why |
 |---|---|---|
 | `.gitignore` | Removed the `CLAUDE.md` entry; added Python entries | μField tracks `CLAUDE.md` files; `server/` is Python |
+| `cmake_templates/build.gradle.in` | `applicationId 'fi.biomitta.ufield'` | μField's identity on Play and devices. The Java namespace and classes stay `uk.co.lutraconsulting`, so upstream Java and JNI code is unchanged |
+| `cmake_templates/AndroidManifest.xml.in` | Labels `μField`; file provider authority `${applicationId}.fileprovider`; removed the `hello.merginmaps.com` SSO deep link | Rebrand; authorities must be unique per device so μField can be installed next to Mergin Maps; μField must not claim Mergin's web links |
+| `app/android/src/uk/co/lutraconsulting/CameraActivity.java`, `MMActivity.java` | File provider authority from `getPackageName()` | Follows the applicationId |
+| `app/androidutils.cpp` | Camera intent's package from `getPackageName()` | `setClassName` needs the applicationId, which is no longer `uk.co.lutraconsulting` |
+| `app/android/res/xml/file_paths.xml` | `Android/data/fi.biomitta.ufield/` | The app's external directory follows the applicationId |
+| `app/qml/main.qml` | Window title `μField` | Rebrand |
+
+Rebrand still to do: the launcher icon, splash screen and colours (need μField artwork); user-visible "Mergin Maps" strings in `tr()` texts, together with their Finnish and English translations; turning off Mergin cloud sign-in by default.
 
 ## Building
 
