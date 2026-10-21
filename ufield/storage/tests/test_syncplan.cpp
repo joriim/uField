@@ -81,7 +81,7 @@ namespace
 
   LocalFile lf( const std::string &md5 ) { return { md5, 1 }; }
   RemoteFile rf( const std::string &id, const std::string &md5 ) { return { id, md5, 1 }; }
-  SyncedFile sf( const std::string &id, const std::string &md5 ) { return { id, md5, 1 }; }
+  SyncedFile sf( const std::string &id, const std::string &md5 ) { return { id, md5, 1, 0 }; }
 
   void tableRows()
   {

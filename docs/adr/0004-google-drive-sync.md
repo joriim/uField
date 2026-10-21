@@ -30,7 +30,7 @@ Projects get into that folder three ways:
 
 ### 3. Sync algorithm
 
-Per project, a local sync state file `.ufield/sync.json` records, for every synced file: its relative path, Drive file id, Drive `md5Checksum` and the local size and hash at the last sync.
+Per project, a local sync state file `.ufield/sync.json` records, for every synced file: its relative path, Drive file id, Drive `md5Checksum` and the local size, mtime and hash at the last sync. A file whose size and mtime are unchanged keeps its recorded hash, so large media are not re-read on every sync. The rules are in `ufield/storage/syncplan.cpp` (pure C++, unit-tested) and applied by `SyncEngine` through a `RemoteStore` interface that `GoogleDriveProvider` implements.
 
 On sync, for each file:
 

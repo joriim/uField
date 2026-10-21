@@ -46,6 +46,7 @@ namespace ufield::sync
     std::string remoteId;
     std::string md5;
     std::int64_t size = 0;
+    std::int64_t localMtimeMs = 0; //!< lets a scan reuse `md5` when size and mtime are unchanged
   };
 
   enum class ActionType

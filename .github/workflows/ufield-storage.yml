@@ -1,4 +1,5 @@
-# μField storage unit tests: the sync planner in ufield/storage (pure C++17).
+# μField storage unit tests: the sync planner (pure C++17) and the Qt sync
+# engine in ufield/storage. Ubuntu's Qt 6 is enough for these Core-only tests.
 name: μField storage
 
 on:
@@ -21,9 +22,13 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
+      - name: Install Qt 6
+        run: sudo apt-get update -y && sudo apt-get install -y --no-install-recommends qt6-base-dev
       - name: Build and test (with sanitizers)
         run: |
           cmake -S ufield/storage -B build -DCMAKE_BUILD_TYPE=Debug \
             -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-sanitize-recover=all"
           cmake --build build
           ctest --test-dir build --output-on-failure
+          # both suites must have been built
+          test -x build/test_syncplan && test -x build/test_syncengine
