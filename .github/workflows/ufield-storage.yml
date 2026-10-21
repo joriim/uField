@@ -1,0 +1,29 @@
+# μField storage unit tests: the sync planner in ufield/storage (pure C++17).
+name: μField storage
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'ufield/storage/**'
+      - '.github/workflows/ufield-storage.yml'
+  pull_request:
+    paths:
+      - 'ufield/storage/**'
+      - '.github/workflows/ufield-storage.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build and test (with sanitizers)
+        run: |
+          cmake -S ufield/storage -B build -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-sanitize-recover=all"
+          cmake --build build
+          ctest --test-dir build --output-on-failure
