@@ -48,13 +48,14 @@ Several of these have lead times of days to weeks, so start them first.
 - [ ] Server hosting in the EU (GDPR) and its secret manager.
 
 **Design fixes from the first review** (all in `schema/tools.json` and `config/layers.yaml`)
-- [ ] One Farm Pack contents vocabulary shared by both files (`ortho_cir`, `water`, `nature`).
-- [ ] Codegen inlines `$defs`; test that every exported tool schema stands alone.
-- [ ] Replace top-level `oneOf` with dispatcher checks (`add_layer`, `request_farm_pack`).
-- [ ] Use `position`/`orientation` in `add_observation` and `attach_media`.
-- [ ] Stable feature ids: a `ufield_uuid` field on every layer; move existing feature tools from `feature_id` to `feature_uuid` (ADR 0003 §2); widen the id pattern for STAC ids.
-- [ ] Align `add_layer.service_type` with registry types.
-- [ ] Fill registry TODOs: layer/collection names, `id_attribute`s, licences marked "confirm". Remove Peltoraportti from `CLAUDE.md` until confirmed.
+- [x] One Farm Pack contents vocabulary shared by both files (`ortho_cir`, `water`, `nature`); checked by `scripts/validate_schema`.
+- [x] Export inlines `$defs` (`scripts/ufield_schema.py`); every exported tool schema is checked to stand alone. Codegen itself comes in phase 2.
+- [x] Replace top-level `oneOf` with dispatcher checks (`x-ufield-rules`), for `add_layer`, `request_farm_pack` and the other tools with either/or inputs.
+- [x] Use `position`/`orientation` in `add_observation` and `attach_media`.
+- [x] Stable feature ids in the schema: feature tools use `feature_uuid` (ADR 0003 §2); `asset_id` allows STAC ids with `.` and `:`. (Adding `ufield_uuid` to layers is app work, phase 2.)
+- [x] Align `add_layer.service_type` with registry types.
+- [ ] Fill registry TODOs: layer/collection names, `id_attribute`s, licences marked "confirm" (needs access to the services' capabilities documents).
+- [x] Remove Peltoraportti from `CLAUDE.md` until confirmed.
 
 **Exit check:** name cleared; Play organisation account and Google Cloud project exist; schema must-fixes merged.
 
@@ -99,7 +100,8 @@ Several of these have lead times of days to weeks, so start them first.
 
 ## Phase 3 — ufield-server (parallel with phase 2)
 
-- [ ] Python project in `server/` (`uv`, `pytest`), container image, deploy to the chosen EU host from CI.
+- [x] Python project in `server/` (`uv`, `pytest`) with `ToolDispatcher` (schema, `x-ufield-rules`, credential-free URLs); tests in CI.
+- [ ] Container image, deploy to the chosen EU host from CI.
 - [ ] Sign-in: Google ID token → server session (ADR 0002 §6); per-user and global rate limits.
 - [ ] Secrets loaded from the environment per the registry's `auth` section; startup fails if missing.
 - [ ] Authenticated proxy for `via_server` layers: MML via HTTP Basic, capabilities rewritten, cache without keys.
@@ -139,12 +141,12 @@ See `docs/adr/0003-claude-notes-and-voice.md`. Given notes (typed) can ship in p
 
 **Notes and analysis**
 - [ ] Project folder layout with `notes/<ufield_uuid>/given|ai/` and `analyses/`; `templates/project/CLAUDE.md` copied into every project.
-- [ ] `read_notes`, `write_note` (author set by `ToolDispatcher`, AI append-only), notes as STAC items.
+- [x] `read_notes`, `write_note` (author set by `ToolDispatcher`, AI append-only), notes as STAC items: `server/src/ufield/project.py`.
 - [ ] `sample_layers`, `compare_features`, `get_time_series` (NDVI and weather via ufield-server).
 - [ ] App notes view: given and AI tabs per point, project analyses, analysis results (rule 1).
 
 **Claude**
-- [ ] `ufield-mcp` local stdio mode; documented setup for Claude Desktop and Claude Code on a Drive-synced project folder.
+- [x] `ufield-mcp` local stdio mode with `read_notes` / `write_note`; setup for Claude Desktop and Claude Code in `server/README.md`. Analysis tools still to add.
 - [ ] Remote MCP tested as a Claude custom connector (sign-in, tool calls, annotations).
 - [ ] Prompt-injection tests: instructions hidden in given notes and layer attributes must not change what Claude does without the user.
 
