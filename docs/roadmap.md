@@ -1,6 +1,6 @@
 # Roadmap to GitHub and Google Play — μField
 
-Status: draft, 2026-09-25. Scope follows the MVP in `CLAUDE.md`. Store rules and dates change often; every item marked *(verify)* must be checked against the current Play Console and Google documentation when that phase starts.
+Status: draft, 2026-09-25. Scope update 2026-10-21: the MVP is the standalone Android app plus Google Drive sync (`CLAUDE.md`, MVP scope); phases 3, 5 and the server parts of 6 come after the MVP. Scope follows the MVP in `CLAUDE.md`. Store rules and dates change often; every item marked *(verify)* must be checked against the current Play Console and Google documentation when that phase starts.
 
 Today the repository holds only design documents: `CLAUDE.md`, the layer registry, the tool schema and two ADRs. There is no app or server code yet.
 
@@ -62,11 +62,11 @@ Several of these have lead times of days to weeks, so start them first.
 ## Phase 1 — Fork, rebrand, build pipeline
 
 **Repository**
-- [ ] Bring upstream in with history: add `MerginMaps/mobile` as the `upstream` remote and merge its default branch into `main`, keeping these documents on top. Record the upstream commit in `docs/upstream.md`, with how to rebase.
+- [x] Bring upstream in with history: release `2026.4.1` merged (not rebased), recorded in `docs/upstream.md` with how to take the next release.
 - [ ] Before going public: run secret scanning over the whole history, enable GitHub secret scanning and push protection.
 - [ ] Add `LICENSE` (GPL-3.0, kept from upstream), `README.md` (what μField is, how it relates to Mergin Maps, build steps), `CONTRIBUTING.md`, `SECURITY.md` (how to report vulnerabilities), `docs/dependencies.md`.
 - [ ] Branch protection on `main`: PRs only, required CI checks.
-- [ ] Make the repository public.
+- [x] Make the repository public.
 
 **Rebrand** (rule 2 and 4: minimal, marked `// UFIELD:` changes)
 - [ ] Package id `fi.biomitta.ufield`, app name, icons, splash, About screen with GPL notice, upstream credit and source link.
@@ -74,7 +74,7 @@ Several of these have lead times of days to weeks, so start them first.
 - [ ] Finnish and English translations of every changed string.
 
 **Build and release pipeline**
-- [ ] GitHub Actions: Android build with Qt 6, NDK and vcpkg as upstream does; cache vcpkg. Build AAB for arm64-v8a and armeabi-v7a (x86_64 for emulator tests).
+- [ ] GitHub Actions: Android build with Qt 6, NDK and vcpkg as upstream does; cache vcpkg (`ufield-android.yml`: arm64-v8a APK on Linux, vcpkg cache in GitHub Packages). Still to add: AAB, armeabi-v7a, x86_64 for emulator tests.
 - [ ] Target API level as required by Play at release time (API 36 in `CLAUDE.md`) *(verify)*.
 - [ ] **16 KB page size:** Play requires native libraries aligned for 16 KB pages for apps targeting Android 15+ *(verify)*. Every native library (Qt, QGIS, GDAL, PROJ, vcpkg ports) must pass the alignment check in CI; fail the build otherwise.
 - [ ] Play App Signing enrolled; upload key and passwords in GitHub Actions secrets (ADR 0002).
