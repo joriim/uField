@@ -1,0 +1,10 @@
+- Geodiff - no official port in vcpkg
+- pcre2 - patch missing `_init`/`_fini` symbols causing lld linker errors on Android
+- libpq - ios fix for OS detection, we change the detected OS to darwin
+- libspatialite - fix build failing on racing condition for ios builds, force sequential build for some directories
+- qca - we needed 2.3.10, there is 2.3.7 in main repo
+- qgis - no official port in vcpkg
+- qtdeclarative - optimization to decrease package size
+- qtpositioning - Android service fix & iOS orthometric position hack
+- libsecret - Build with -Dbash_completion=disabled to avoid PermissionError: [Errno 13] Permission denied: '/usr/share/bash-completion/completions/secret-tool'
+- libaec - Change from Gitlab to Github oficial repository as Gitlab was ratelimiting strongly and upstream didn't swap yet 

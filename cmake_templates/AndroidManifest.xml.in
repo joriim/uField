@@ -1,0 +1,127 @@
+<?xml version="1.0"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    android:installLocation="auto"
+    android:versionCode="@MM_VERSION_CODE@"
+    android:versionName="@MM_VERSION@">
+
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/> <!-- Read images from gallery, Android <=12 -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" /> <!-- BT permission up to SDK 30-->
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" /> <!-- BT permission up to SDK 30-->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"/>
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS"/> <!-- Reading compass while taking a picture -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/> <!-- To be able to send notifications, Android 13+ -->
+    <uses-permission android:name="android.permission.VIBRATE"/>
+
+    <!-- Android considers EXIF data as sensitive (since they contain user's location), so we need to opt for permission ACCESS_MEDIA_LOCATION.
+    Even though it is a runtime permission (one need to opt for it in code),
+    it has no GUI element (is granted automatically without user's input, user do not see anything). -->
+    <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION"/>
+
+    <!-- %%INSERT_FEATURES -->
+    <uses-feature android:name="android.hardware.bluetooth" android:required="false"/>
+    <uses-feature android:name="android.hardware.camera.any" android:required="false"/>
+
+    <supports-screens
+        android:anyDensity="true"
+        android:largeScreens="true"
+        android:normalScreens="true"
+        android:smallScreens="true" />
+    <application 
+        android:name="org.qtproject.qt.android.bindings.QtApplication"
+        android:hardwareAccelerated="true"
+        android:label="Mergin Maps"
+        android:allowBackup="true"
+        android:fullBackupOnly="false"
+        android:icon="@mipmap/ic_appicon"
+        android:roundIcon="@mipmap/ic_appicon_round" >
+        <activity
+            android:name="uk.co.lutraconsulting.MMActivity"
+            android:configChanges="orientation|uiMode|screenLayout|screenSize|smallestScreenSize|layoutDirection|locale|fontScale|keyboard|keyboardHidden|navigation|mcc|mnc|density"
+            android:launchMode="singleTop"
+            android:screenOrientation="unspecified"
+            android:exported="true"
+            android:theme="@style/Theme.App.Starting"
+            android:enableOnBackInvokedCallback="false"
+            >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Get access to images/videos -->
+            <intent-filter>
+                 <action android:name="android.intent.action.GET_CONTENT" />
+            </intent-filter>
+
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="https" />
+                <data android:host="hello.merginmaps.com" />
+                <data android:pathPrefix="/mobile/sso-redirect" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.app.lib_name" 
+                android:value="-- %%INSERT_APP_LIB_NAME%% --" />
+
+            <meta-data 
+                android:name="android.app.arguments" 
+                android:value="-- %%INSERT_APP_ARGUMENTS%% --" />
+        </activity>
+
+        <!-- Activity Android native camera -->
+        <activity
+            android:name="uk.co.lutraconsulting.CameraActivity"
+            android:label="Mergin Maps"
+            android:parentActivityName="uk.co.lutraconsulting.MMActivity"
+            android:configChanges="screenLayout|orientation|screenSize"
+            >
+             <meta-data android:name="android.app.lib_name" android:value="-- %%INSERT_APP_LIB_NAME%% --" />
+        </activity>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="uk.co.lutraconsulting.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true"
+            >
+             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" >
+             </meta-data>
+        </provider>
+
+        <service
+            android:process=":trackingThread"
+            android:name=".PositionTrackingService"
+            android:foregroundServiceType="location"
+            android:stopWithTask="true"
+            android:exported="false"
+            />
+
+        <service
+            android:name=".CameraForegroundService"
+            android:foregroundServiceType="shortService"
+            android:stopWithTask="true"
+            android:exported="false"
+            />
+    </application>
+
+    <!-- Explicitly mention that we need to use external app for capturing an image and open file-->
+    <queries>
+    <intent>
+        <action android:name="android.media.action.IMAGE_CAPTURE" />
+    </intent>
+    <intent>
+        <action android:name="android.intent.action.VIEW" />
+        <data android:mimeType="*/*" />
+    </intent>
+    </queries>
+</manifest>

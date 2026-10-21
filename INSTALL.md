@@ -1,0 +1,716 @@
+# Table of Contents <a name="table-of-contents"></a>
+
+<!-- Table of contents generated with https://freelance-tech-writer.github.io/table-of-contents-generator/index.html -->
+
+- [Table of Contents](#table-of-contents)
+- [1. Introduction](#introduction)
+- [2. Overview](#overview)
+  - [2.1 Secrets](#secrets)
+  - [2.2 Code formatting](#code-formatting)
+  - [2.3 Qt packages](#qt-packages)
+  - [2.4 Vcpkg](#vcpkg)
+  - [2.5 ccache](#ccache)
+- [3. Building GNU/Linux](#building-linux)
+  - [3.1 Ubuntu 24.04](#ubuntu)
+- [4. Building Android (on Linux/macOS/Windows)](#building-android)
+  - [4.1. Android on Ubuntu](#android-on-linux)
+  - [4.2. Android on macOS](#android-on-macos)
+  - [4.3. Android on Windows](#android-on-windows)
+- [5. Building iOS](#building-ios)
+- [6. Building macOS](#building-macos)
+- [7. Building Windows](#building-windows)
+- [8. FAQ](#faq)
+- [9. Auto Testing](#auto-testing)
+
+# 1. Introduction <a name="introduction"></a>
+
+This document is the original installation guide of the described software
+Mergin Maps mobile app. The software and hardware descriptions named in this
+document are in most cases registered trademarks and are therefore subject
+to the legal requirements. Mergin Maps mobile app is subject to the GNU General Public
+License.
+
+The details, that are given in this document have been written and verified
+to the best of knowledge and responsibility of the editors. Nevertheless,
+mistakes concerning the content are possible. Therefore, all data are not
+liable to any duties or guarantees. The editors and publishers do not take
+any responsibility or liability for failures and their consequences. You are
+always welcome for indicating possible mistakes.
+
+For user documentation, please read [merginmaps.com/docs](https://merginmaps.com/docs).
+
+For code architecture of codebase, please see [docs](./docs/README.md).
+
+**Note to document writers:** Please use this document as the central
+place for describing build procedures. Please do not remove this notice.
+
+# 2. Overview <a name="overview"></a>
+
+Mobile app, like a number of major projects (e.g., KDE),
+uses [CMake](https://www.cmake.org) for building from source.
+
+It is C++ application build on top of [Qt](https://www.qt.io), [QGIS](https://www.qgis.org/en/site/)
+and many other FOSS libraries.
+
+All required libraries are build with [vcpkg](https://vcpkg.io/en/) C/C++ package manager as part of the CMake's configure step.
+
+Generally, for building setup, we recommend to use the same versions of libraries/SDKs/NDKs/compilers as used in the official
+[GitHub Actions](https://github.com/MerginMaps/mobile/tree/master/.github/workflows).
+Open workflow file for your platform/target and see the version of libraries used and replicate it in your setup.
+
+## 2.1 Secrets <a name="secrets"></a>
+
+### Mergin API
+To communicate with MerginAPI, some endpoints need to attach `api_key`. To not leak API_KEY,
+the source code that returns the API_KEYS is encrypted.
+
+As a developer, if you want to develop against local Mergin Maps server, it is OK, but to
+work with public or dev server, you need to manually decrypt the file. Decrypted file is never
+pushed to git!
+
+The password for decryption is in Lutra's password manager.
+
+if you want to change the secrets, decrypt, change and encrypt the file with
+[openssl](http://stackoverflow.com/questions/16056135/ddg#16056298), also
+make sure you update the keys in password manager and in the kubernetes
+manifest files.
+
+encrypt
+
+```bash
+cd core/
+openssl aes-256-cbc -in merginsecrets.cpp -out merginsecrets.cpp.enc -md md5
+```
+
+decrypt
+
+```bash
+cd core/
+openssl aes-256-cbc -d -in merginsecrets.cpp.enc -out merginsecrets.cpp -md md5
+```
+### Trimble
+Similar approach has been used with APP ID for Trimble Mobile Manager. Having access to this file shouldn't be necessary. 
+You can always defer the build to CI.
+
+encrypt
+
+```bash
+cd app/position/providers
+openssl aes-256-cbc -in trimblesecrets.cpp -out trimblesecrets.cpp.enc -md md5
+```
+
+decrypt
+
+```bash
+cd app/position/providers
+openssl aes-256-cbc -d -in trimblesecrets.cpp.enc -out trimblesecrets.cpp -md md5
+```
+
+## 2.2 Code formatting <a name="code-formatting"></a>
+
+We use `astyle` to format CPP and Objective-C files. Format is similar to what QGIS has.
+We use `cmake-format` to format CMake files.
+
+All the scripts are located in `scripts/format_*` and you can check
+[GitHub Actions](https://github.com/MerginMaps/mobile/tree/master/.github/workflows/code_style.yml) to see
+their usage
+
+For more details about code conventions, please read our [code conventions doc](./docs/code_convention.md).
+
+## 2.3 Qt packages <a name="qt-packages"></a>
+
+Mergin Maps Mobile app is built with Qt. Qt is build with vcpkg as part of the configure step, but it is recommended
+to install QtCreator and Qt on your host to be able to release translations.
+
+## 2.4 Vcpkg <a name="vcpkg"></a>
+
+Dependencies are build with vcpkg. To fix the version of libraries, you need to download vcpkg and checkout to git commit specified
+in the file `VCPKG_BASELINE` in the repository. The VCPKG repository **HAS TO BE** outside the mobile repository.
+
+```bash
+git clone https://github.com/microsoft/vcpkg.git
+VCPKG_TAG=`cat mobile/VCPKG_BASELINE`
+git checkout ${VCPKG_TAG}
+cd vcpkg
+chmod +x ./bootstrap-vcpkg.sh
+./bootstrap-vcpkg.sh
+```
+
+## 2.5 ccache <a name="ccache"></a>
+
+Install and configure ccache for development. It speeds up the development significantly.
+
+# 3. Building GNU/Linux <a name="building-linux"></a>
+
+## 3.1 Ubuntu 24.04 <a name="ubuntu"></a>
+
+Steps to build and run mobile app:
+
+1. Install some dependencies, critically bison and flex. See "Install Build Dependencies" step in `.github/workflows/linux.yml`
+
+   ```bash
+   sudo apt-get install -y \
+         gperf autopoint '^libxcb.*-dev' libx11-xcb-dev libegl1-mesa-dev \
+         libglu1-mesa-dev libxrender-dev libxi-dev libxkbcommon-dev libxkbcommon-x11-dev \
+         autoconf-archive libgstreamer-gl1.0-0 libgstreamer-plugins-base1.0-0 libfuse2t64 \
+         lcov nasm libxrandr-dev mono-complete xvfb libltdl-dev libwayland-dev libwayland-egl-backend-dev \
+         wayland-protocols bison flex
+   ```
+
+   Also install CMake, Ninja and ccache
+
+2. Install vcpkg and checkout to correct version from file `VCPKG_BASELINE`
+   Read [vcpkg](#vcpkg) section.
+
+3. Configure mobile app
+   We assume the structure on the system:
+
+   ```
+   mm/
+     build/
+     vcpkg/
+     mobile/
+   ```
+
+   This is command line to setup build system. As part of the cmake configure step it will compile all the deps (Qt, GDAL, QGIS), so it
+   can take considerable time (e.g. an hour). Subsequent runs will be faster as the libraries without change will be taken from local
+   binary vcpkg cache.
+
+   Alternatively you can open QtCreator and add cmake defines to the QtCreator Project setup table and configure from QtCreator (recommended for
+   development and debugging)
+
+   To use USE_MM_SERVER_API_KEY read [Secrets](#secrets) section.
+
+   ```bash
+   mkdir -p build
+   cd build
+   cmake \
+      -DCMAKE_BUILD_TYPE=Debug \
+      -DVCPKG_TARGET_TRIPLET=x64-linux \
+      -DCMAKE_TOOLCHAIN_FILE=<path-to-directory>/vcpkg/scripts/buildsystems/vcpkg.cmake \
+      -DUSE_MM_SERVER_API_KEY=FALSE \
+      -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+      -DENABLE_TESTS=TRUE \
+      -GNinja \
+      -S ../mobile
+   ```
+
+   Note: `libpq` will fail to build if the `zic` tool is not in the system path. In that case, set the `ZIC` environment variable to the full path leading to
+   the executable, for example: `export ZIC=/usr/sbin/zic`.
+
+4. Build application
+
+   ```bash
+   ninja
+   ```
+
+5. Run mobile app
+
+   ```bash
+   ./app/MerginMaps
+   ```
+
+   For testing read [Auto Testing](#auto-testing) section.
+
+# 4. Building Android (on Linux/macOS/Windows) <a name="building-android"></a>
+
+For building ABIs see https://www.qt.io/blog/android-multi-abi-builds-are-back
+
+## 4.1. Android on Linux <a name="android-on-linux"></a>
+
+1. Install some dependencies, see requirements in `.github/workflows/android.yml`
+   - Java 17 (on Ubuntu 24.04 do `sudo apt install openjdk-17-jdk` and make sure it is the default by checking `java --version`)
+   - android SDK + build tools to `~/android`, android NDK to `~/android/ndk/<ver>`:
+     - Get [Android command line tools](https://developer.android.com/studio/index.html#command-line-tools-only) and extract to `~/android/cmdline-tools`
+     - See current versions of build tools (`SDK_BUILD_TOOLS`), ndk (`NDK_VERSION`) and platform (`SDK_PLATFORM`) in `.github/workflows/android.yml`
+     - `./cmdline-tools/bin/sdkmanager --sdk_root=./ "build-tools;<current_version>" "ndk;<current_version>" "platforms;<current_version>" platform-tools tools`
+   - flex and bison
+   - set up your own developer keystore. Creating the key(store) can be done either with Android studio or on command line with this command: `keytool -genkey -v -keystore my-release-key.keystore -alias my-key-alias -keyalg RSA -keysize 2048 -validity 10000`
+       (customise the validity argument if needed).
+
+2. Build mobile app (update CMake command with the correct Qt and Android NDK versions)
+
+   We recommended to have **RelWithDebInfo** builds, which requires signing the APK with your key.
+
+   We assume the structure on the system:
+
+   ```
+   mm/
+     build/
+     vcpkg/
+     mobile/
+   ```
+
+   This is command line to setup build system. As part of the cmake configure step it will compile all the deps (Qt, GDAL, QGIS), so it
+   can take considerable time (e.g. an hour). Subsequent runs will be faster as the libraries without change will be taken from local
+   binary vcpkg cache.
+
+   ```bash
+     export ANDROID_NDK_HOME=/home/<user>/android/ndk/<current_version>
+     export ANDROID_SDK_ROOT=/home/<user>/android
+     export QT_ANDROID_KEYSTORE_ALIAS=<local-alias>
+     export QT_ANDROID_KEYSTORE_KEY_PASS=<password>
+     export QT_ANDROID_KEYSTORE_STORE_PASS=<password>
+     export QT_ANDROID_KEYSTORE_PATH=<keystore-path>
+
+     cmake \
+       -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+       -DANDROID_ABI=arm64-v8a \
+       -DQT_ANDROID_ABIS=arm64-v8a \
+       -DVCPKG_HOST_TRIPLET=x64-linux \
+       -DVCPKG_TARGET_TRIPLET=arm64-android \
+       -DCMAKE_TOOLCHAIN_FILE=<path-to-directory>/vcpkg/scripts/buildsystems/vcpkg.cmake \
+       -DVCPKG_INSTALL_OPTIONS="--allow-unsupported" \
+       -DUSE_MM_SERVER_API_KEY=TRUE \
+       -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+       -DANDROID_SDK_ROOT=/home/<user>/android \
+       -DQT_ANDROID_SIGN_APK=Yes
+       -GNinja \
+       -S ../mobile \
+       -B ./
+   ```
+
+Alternatively you can open QtCreator and add cmake defines to the QtCreator Project setup table and configure from QtCreator (recommended for
+development and debugging)
+
+Add this to build env.
+
+```
+     PATH=+/Users/<user>/Projects/quick/build/vcpkg
+     ANDROID_NDK_HOME=/Users/<user>/android/ndk/<current_version>
+     ANDROID_SDK_ROOT=/Users/<user>/android
+     QT_ANDROID_KEYSTORE_ALIAS=<local-alias>
+     QT_ANDROID_KEYSTORE_KEY_PASS=<password>
+     QT_ANDROID_KEYSTORE_STORE_PASS=<password>
+     QT_ANDROID_KEYSTORE_PATH=<keystore-path>
+```
+
+And this to cmake options
+
+```
+     ANDROID_ABI=arm64-v8a
+     QT_ANDROID_ABIS=arm64-v8a
+     VCPKG_HOST_TRIPLET=x64-linux
+     VCPKG_TARGET_TRIPLET=arm64-android
+     CMAKE_TOOLCHAIN_FILE="<path-to-directory>/vcpkg/scripts/buildsystems/vcpkg.cmake"
+     VCPKG_INSTALL_OPTIONS="--allow-unsupported"
+     CMAKE_CXX_COMPILER_LAUNCHER=ccache
+     ANDROID_SDK_ROOT=/Users/<user>/android
+     QT_ANDROID_SIGN_APK=Yes
+```
+
+To use USE_MM_SERVER_API_KEY read [Secrets](#secrets) section.
+
+4. Build and Run
+
+To build the project, go to the build folder and run the following command:
+
+```bash
+ninja
+```
+
+Once built, navigate to the path and run MerginMaps:
+
+```
+build_folder/
+   app/
+      MerginMaps
+```
+
+## 4.2. Android on macOS <a name="android-on-macos"></a>
+
+1. Install Java
+   - `brew install openjdk@17`, then make this java version default ``export JAVA_HOME=`usr/libexec/java_home -v 17` ``. Check if it's default by executing `java --version`
+
+2. Setup Android SDK & NDK
+   - This step can now be performed via QtCreator, if it for some reason fails/does not work, skip this step and continue with manual setup
+
+   - Open QtCreator and navigate to `settings -> devices -> Android`, here:
+     - JDK location: Add Path to Java version, e.g. `/opt/homebrew/Cellar/openjdk@17/17.0.11/libexec/openjdk.jdk/Contents/Home` (or `/opt/homebrew/Cellar/openjdk@17/17.0.15/libexec/openjdk.jdk/Contents/Home/`)
+     - Android SDK location: set path to some empty writeable directory, e.g. `~/android`
+     - Hit `Set up SDK` and install the current SDK version (find the correct version in `.github/workflows/android.yml`)
+     - Let QtCreator install NDK
+     - Let QtCreator install openssl
+   - QtCreator should now say `Android settings are OK.`
+
+   - If the previous automatic step did not work for you or you do not want to use QtCreator
+     - Get Android `sdkmanager` by following these steps https://developer.android.com/tools/sdkmanager
+     - See current versions of build tools (`SDK_BUILD_TOOLS`), ndk (`NDK_VERSION`) and platform (`SDK_PLATFORM`) in `.github/workflows/android.yml`
+     - Now perform `./cmdline-tools/bin/sdkmanager --sdk_root=./ "build-tools;<current_version>" "ndk;<current_version>" "platforms;<current_version>" platform-tools tools` to install all needed Android tools, make sure to double-check if the version numbers are correct
+   - After this step, check that you have:
+     - installed flex and bison
+     - set up your own developer keystore. Creating the key(store) can be done either with Android studio or on command line with this command: `keytool -genkey -v -keystore my-release-key.keystore -alias my-key-alias -keyalg RSA -keysize 2048 -validity 10000`
+       (customise the validity argument if needed).
+
+3. Configure
+
+   We recommended to have **RelWithDebInfo** builds
+
+   We assume the structure on the system:
+
+   ```
+   mm/
+     build/
+     vcpkg/
+     mobile/
+   ```
+
+   To find your QT_ANDROID_KEYSTORE_ALIAS, run this command:
+   `keytool -list -v -keystore /<path-to-keystore>/my-release-key.keystore`.
+   This is command line to setup build system. As part of the cmake configure step it will compile all the deps (Qt, GDAL, QGIS), so it
+   can take considerable time (e.g. an hour). Subsequent runs will be faster as the libraries without change will be taken from local
+   binary vcpkg cache.
+
+   ```bash
+     export ANDROID_NDK_HOME=/Users/<user>/android/ndk/<current_version>
+     export ANDROID_SDK_ROOT=/Users/<user>/android
+     export QT_ANDROID_KEYSTORE_ALIAS=<local-alias>
+     export QT_ANDROID_KEYSTORE_KEY_PASS=<password>
+     export QT_ANDROID_KEYSTORE_STORE_PASS=<password>
+     export QT_ANDROID_KEYSTORE_PATH=<keystore-path>
+     export PATH=$(brew --prefix flex)/bin:$(brew --prefix bison)/bin:$(brew --prefix gettext)/bin:$PATH;
+
+     cmake \
+       -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+       -DANDROID_ABI=arm64-v8a \
+       -DQT_ANDROID_ABIS=arm64-v8a \
+       -DVCPKG_HOST_TRIPLET=arm64-osx \
+       -DVCPKG_TARGET_TRIPLET=arm64-android \
+       -DCMAKE_TOOLCHAIN_FILE="<path-to-directory>/vcpkg/scripts/buildsystems/vcpkg.cmake" \
+       -DVCPKG_INSTALL_OPTIONS="--allow-unsupported" \
+       -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+       -DANDROID_SDK_ROOT=/Users/<user>/android \
+       -DQT_ANDROID_SIGN_APK=Yes \
+       -GNinja \
+       -S ../mobile \
+       -B ./
+   ```
+
+   Alternatively you can open QtCreator and add cmake defines to the QtCreator Project setup table and configure from QtCreator (recommended for
+   development and debugging)
+
+   Add this to build env.
+
+   ```
+     PATH=+/opt/homebrew/bin
+     PATH=+/opt/homebrew/Cellar/flex/2.6.4_2/bin
+     PATH=+/opt/homebrew/Cellar/bison/3.8.2/bin
+     PATH=+/Users/<user>/Projects/quick/build/vcpkg
+     ANDROID_NDK_HOME=/Users/<user>/android/ndk/<current_version>
+     ANDROID_SDK_ROOT=/Users/<user>/android
+     QT_ANDROID_KEYSTORE_ALIAS=<local-alias>
+     QT_ANDROID_KEYSTORE_KEY_PASS=<password>
+     QT_ANDROID_KEYSTORE_STORE_PASS=<password>
+     QT_ANDROID_KEYSTORE_PATH=<keystore-path>
+   ```
+
+   And this to cmake options
+
+   ```
+     ANDROID_ABI=arm64-v8a
+     QT_ANDROID_ABIS=arm64-v8a
+     VCPKG_HOST_TRIPLET=arm64-osx
+     VCPKG_TARGET_TRIPLET=arm64-android
+     CMAKE_TOOLCHAIN_FILE="<path-to-directory>/vcpkg/scripts/buildsystems/vcpkg.cmake"
+     VCPKG_INSTALL_OPTIONS="--allow-unsupported"
+     CMAKE_CXX_COMPILER_LAUNCHER=ccache
+     ANDROID_SDK_ROOT=/Users/<user>/android
+     QT_ANDROID_SIGN_APK=Yes
+   ```
+
+   To use USE_MM_SERVER_API_KEY read [Secrets](#secrets) section.
+
+4. Build and Run
+
+   To build the project, go to the build folder and run the following command:
+
+   ```bash
+   ninja
+   ```
+
+   Once built, navigate to the path and run MerginMaps:
+
+   ```bash
+   build_folder/
+      app/
+         MerginMaps
+   ```
+
+## 4.3. Android on Windows <a name="android-on-windows"></a>
+
+Even technically it should be possible, we haven't tried this setup yet. If you managed to compile
+mobile app for Android on Windows, please help us to update this section.
+
+# 5. Building iOS <a name="building-ios"></a>
+
+- you have to run Release or RelWithDebInfo builds. Debug builds will usually crash on some Qt's assert
+- if there is any problem running mobile app from Qt Creator, open cmake-generated project in XCode directly
+
+1. Setup development environment
+   - XCode
+   - install deps, see requirements in `.github/workflows/ios.yml`. Most specifically cmake, ninja, bison and flex (on PATH)
+   - if you want to build for production, you need development certificates. These are not needed for local development, signing is handled automatically (see IOS_USE_PRODUCTION_SIGNING cmake variable for more info). You can get the certificates by following:
+     - Get device UDID: either iTunes or about this mac->system report->USB->find iPAD (Serial Number)
+     - Create dev iOS certificate for development
+     - Create provisioning profile for mobile app + your certificate + your device (for this ask Lutra Apple development team)
+
+2. Install vcpkg and checkout to correct version from file `VCPKG_BASELINE`
+   Read [vcpkg](#vcpkg) section.
+
+3. Configure mobile app
+   We assume the structure on the system:
+
+   ```
+   mm/
+     build/
+     vcpkg/
+     mobile/
+   ```
+
+   This is command line to setup build system. As part of the cmake configure step it will compile all the deps (Qt, GDAL, QGIS), so it can take considerable time (e.g. an hour). Subsequent runs will be faster as the libraries without change will be taken from local binary vcpkg cache.
+
+   Alternatively you can open QtCreator and add cmake defines to the QtCreator Project setup table and configure from QtCreator (recommended for development and debugging)
+
+   To use USE_MM_SERVER_API_KEY read [Secrets](#secrets) section.
+
+   Note: make sure you adjust VCPKG_HOST_TRIPLET and CMAKE_SYSTEM_PROCESSOR if you use x64-osx host machine.
+
+   ```bash
+   cd build
+
+   export PATH=$(brew --prefix flex)/bin:$(brew --prefix bison)/bin:$(brew --prefix gettext)/bin:$PATH;\
+   export PATH=${PWD}/../vcpkg:$PATH;\
+   PATH=/Applications/CMake.app/Contents/bin/:$PATH
+
+   cmake \
+     -DVCPKG_HOST_TRIPLET=arm64-osx \
+     -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
+     -DVCPKG_TARGET_TRIPLET=arm64-ios \
+     -DCMAKE_TOOLCHAIN_FILE=<path-to-directory>/vcpkg/scripts/buildsystems/vcpkg.cmake \
+     -DENABLE_BITCODE=OFF \
+     -DENABLE_ARC=ON \
+     -DCMAKE_CXX_VISIBILITY_PRESET=hidden \
+     -DCMAKE_SYSTEM_NAME=iOS \
+     -DIOS=TRUE \
+     -DUSE_MM_SERVER_API_KEY=FALSE \
+     -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+     -G "Xcode" \
+     -S ../mobile \
+     -B ./
+   ```
+
+4. Build mobile app
+
+Now you can create a build (either on command line or by setting these variables in Qt Creator)
+
+```bash
+  cd build
+
+  xcodebuild \
+    -project MerginMaps.xcodeproj/ \
+    -scheme MerginMaps \
+    -sdk iphoneos \
+    -configuration Release \
+    archive -archivePath MerginMaps.xcarchive
+```
+
+Alternatively, navigate to the build folder and open the Xcode Project:
+
+```
+build_folder/
+   MerginMaps.xcodeproj
+```
+
+Once the project is opened, build it from Xcode.
+
+# 6. Building macOS <a name="building-macos"></a>
+
+1. Install some dependencies, critically XCode, bison and flex. See "Install Build Dependencies" step in `.github/workflows/macos.yml`
+
+```bash
+   brew install cmake automake bison flex gnu-sed autoconf-archive libtool ninja pkg-config
+```
+
+2. Install vcpkg and checkout to correct version from file `VCPKG_BASELINE`
+   Read [vcpkg](#vcpkg) section.
+
+3. Configure mobile app
+   We assume the structure on the system:
+
+   ```
+   mm/
+     build/
+     vcpkg/
+     mobile/
+   ```
+
+   This is command line to setup build system. As part of the cmake configure step it will compile all the deps (Qt, GDAL, QGIS), so it can take considerable time (e.g. an hour). Subsequent runs will be faster as the libraries without change will be taken from local binary vcpkg cache.
+
+   Alternatively you can open QtCreator and add cmake defines to the QtCreator Project setup table and configure from QtCreator (recommended for development and debugging)
+
+   To use USE_MM_SERVER_API_KEY read [Secrets](#secrets) section.
+
+   Note: for **x64-osx** (intel laptops) build use **x64-osx** VCPKG_TARGET_TRIPLET instead of **arm64-osx** (Mx laptops)
+
+   ```bash
+   cd build
+
+   export PATH=$(brew --prefix flex)/bin:$(brew --prefix bison)/bin:$(brew --prefix gettext)/bin:$PATH;\
+   export PATH=${PWD}/../vcpkg:$PATH;\
+   PATH=/Applications/CMake.app/Contents/bin/:$PATH
+
+   cmake \
+      -DCMAKE_BUILD_TYPE=Debug \
+      -DVCPKG_TARGET_TRIPLET=arm64-osx \
+      -DCMAKE_TOOLCHAIN_FILE=<path-to-directory>/vcpkg/scripts/buildsystems/vcpkg.cmake \
+      -DUSE_MM_SERVER_API_KEY=FALSE \
+      -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+      -DENABLE_TESTS=TRUE \
+      -GNinja \
+      -DCMAKE_MAKE_PROGRAM=ninja \
+      -S ../mobile
+   ```
+
+4. Build application
+
+   ```bash
+   ninja
+   ```
+
+5. Run the mobile app
+   ```bash
+   ./app/MerginMaps.app/Contents/MacOS/MerginMaps
+   ```
+
+# 7. Building Windows <a name="building-windows"></a>
+
+1. Install some dependencies. See `.github/workflows/win.yml`
+   Critically Visual Studio, cmake, bison and flex. Setup build VS environment (adjust to your version)
+
+```shell
+"C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat" -arch=x64
+```
+
+2. Install vcpkg and checkout to correct version from file `VCPKG_BASELINE`
+   Read [vcpkg](#vcpkg) section.
+
+3. Configure mobile app
+   We assume the structure on the system:
+
+   ```
+   mm/
+     build/
+     vcpkg/
+     mobile/
+   ```
+
+   This is command line to setup build system. As part of the cmake configure step it will compile all the deps (Qt, GDAL, QGIS), so it
+   can take considerable time (e.g. an hour). Subsequent runs will be faster as the libraries without change will be taken from local
+   binary vcpkg cache.
+
+   Alternatively you can open QtCreator and add cmake defines to the QtCreator Project setup table and configure from QtCreator (recommended for
+   development and debugging)
+
+   To use USE_MM_SERVER_API_KEY read [Secrets](#secrets) section.
+
+   ```shell
+   mkdir build
+   cd build
+
+   cmake ^
+     -DCMAKE_BUILD_TYPE=Debug ^
+     -DCMAKE_TOOLCHAIN_FILE:PATH="<path-to-directory>/vcpkg/scripts/buildsystems/vcpkg.cmake" ^
+     -DVCPKG_TARGET_TRIPLET=x64-windows ^
+     -DUSE_MM_SERVER_API_KEY=FALSE ^
+     -DCMAKE_CXX_COMPILER_LAUNCHER=ccache ^
+     -A x64 ^
+     -G "Visual Studio 17 2022" ^
+     -S ../mobile ^
+     -B .
+   ```
+
+4. Build application
+
+   ```shell
+   cd build
+   cmake --build . --config Release --verbose
+   ```
+
+5. Run the mobile app
+   ```shell
+   ./app/MerginMaps.exe
+   ```
+
+# 8. FAQ <a name="faq"></a>
+
+- If you have "error: undefined reference to 'stdout'" or so, make sure that in BUILD ENV you have appropriate ANDROID_NDK_PLATFORM set!
+  ![image](https://user-images.githubusercontent.com/22449698/166630970-a776576f-c505-4265-b4c8-ffbe212c6745.png)
+- If for all projects the OSM layer fails to load the `QGIS_QUICK_DATA_PATH` is probably wrong
+  - Check where the projects are getting created
+  - And change the path to point to `app/android/assets/qgis-data` of the build directory
+- If images in feature forms are not getting loaded it's again probably problem with `QGIS_QUICK_DATA_PATH`
+  - Use absolute path instead of relative path
+  - Make sure it's targeting **build** directory
+- If using Visual Studio Code to configure and build the project, check the template in the `docs` folder.
+
+# 9. Auto Testing <a name="auto-testing"></a>
+
+## Unit tests
+You need to add cmake define `-DENABLE_TESTING=TRUE` on your cmake configure line.
+Also, you need to open Passbolt and check for password for user `test_mobileapp` on `app.dev.merginmaps.com`,
+or you need some user with unlimited projects limit. First workspace from list is taken.
+
+! Note that the same user cannot run tests in parallel ! This user is used for CI, consider creating your own account for local development !
+
+now you need to set environment variables:
+
+```
+TEST_MERGIN_URL=https://app.dev.merginmaps.com/
+TEST_API_USERNAME=test_mobileapp
+TEST_API_PASSWORD=<your_password>
+```
+
+Build binary, and you can run tests either with `ctest` or you can run individual tests by adding `--test<TestName>`
+e.g. ` ./MerginMaps --testMerginApi`
+
+## Squish tests
+### Prerequisites
+ - Squish for Qt for Android (ARMv8/ARMv7 depending on architecture you build for)
+ - Squish for Qt for iOS
+ - Squish for Qt (Windows/Mac/Linux), this should also include the Squish IDE
+
+### Android & iOS
+After you unpack both (Qt & Qt for Android / iOS) and install Squish IDE, add these cmake arguments
+```cmake
+-DSQUISH_PATH=/<path>/<to>/<squish-for-android-or-ios>/<directory>/
+-DCMAKE_FIND_ROOT_PATH=/<path>/<to>/<squish-for-android-or-ios>/<directory>/
+-DCMAKE_FIND_ROOT_PATH_MODE_PACKAGE=BOTH
+```
+This will build the app with squish hook inside. You can verify that squish is working by finding these lines in log after startup:
+
+##### Android log
+```shell
+I/Squish  (26459): Setting SQUISH_PREFIX to '/data/data/uk.co.lutraconsulting'
+I/Squish  (26459): libMerginMaps_arm64-v8a.so[26459]: Loading Qt Wrapper configuration from ":/squish/etc/qtwrapper.ini"
+I/Squish  (26459): libMerginMaps_arm64-v8a.so[26459]: QObject lifetime tracking is disabled
+I/Squish  (26459): libMerginMaps_arm64-v8a.so[26459]: Listening on port 7757 for incoming connections
+```
+
+##### iOS log
+```shell
+MerginMaps[834]: Loading Qt Wrapper configuration from ":/squish/etc/qtwrapper.ini"
+MerginMaps[834]: QObject lifetime tracking is disabled
+MerginMaps[834]: Listening on port 7757 for incoming connections
+```
+
+### Squish
+In the squish IDE it's necessary to follow these steps to finish setting it up and start testing the application.
+1. In Squish IDE choose File, New Test Suite to create a new Test Suite and follow the wizard. When asked for the GUI Toolkit choose Qt. When asked for the Application Under Test choose \<No Application\>.
+2. [Register attachable AUT](https://doc.qt.io/squish/attaching-to-running-applications.html#register-the-attachable-aut)
+    1. As _Name_ set `MerginMaps`, _Host_ is the IP address of your phone (has to be on the same Wifi) and set _Port_ to `7757`
+    2. You can also use USB cable to connect both devices. However, there is some further setup to do, first you need to forward the device port to your PC with:
+   ```shell
+    $ adb forward tcp:portnumber tcp:portnumber
+   ```
+   After that the setup is the same as in point 1, just _Host_ will become `localhost`.
+3. The test script should start with `attachToApplication("MerginMaps")`

@@ -1,0 +1,103 @@
+name: Code Layout
+
+on:
+  push:
+    paths:
+    - 'app/**'
+    - 'core/**'
+    - 'gallery/**'
+    - 'scripts/**'
+    - 'test/**'
+    - 'cmake/**'
+    - 'cmake_templates/**'
+    - 'CMakeLists.txt'
+    - '.github/workflows/code_style.yml'
+    
+  release:
+    types:
+      - published
+
+jobs:
+  code_style_cpp:
+    name: C++ code convention check
+    if: ( github.repository == 'MerginMaps/mobile' ) && (!contains(github.event.head_commit.message, 'Translate '))
+    runs-on: macos-latest
+    steps:
+
+      - name: Checkout input
+        uses: actions/checkout@v6
+        with:
+          path: input
+
+      - name: Install astyle and run the check
+        run: |
+          python3 -m venv ./venv
+          source ./venv/bin/activate
+          sudo pip3 install astyle===3.4.13
+          
+          ./input/scripts/format_cpp.bash
+
+  code_style_cmake:
+    name: CMake code convention check
+    if: ( github.repository == 'MerginMaps/mobile' ) && (!contains(github.event.head_commit.message, 'Translate '))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install cmake-format
+        run: |
+          sudo pip3 install cmakelang
+
+      - name: Checkout input
+        uses: actions/checkout@v6
+        with:
+          path: input
+
+      - name: Run cmake-format check
+        run: |
+          ./input/scripts/format_cmake.bash
+
+  cppcheck:
+    name: Cppcheck
+    if: ( github.repository == 'MerginMaps/mobile' ) && (!contains(github.event.head_commit.message, 'Translate '))
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Requirements
+        # workaround for the current false positive bug in cppcheck 2.21 (latest version)
+        run: |
+          curl -L -o cppcheck.tar.gz https://github.com/danmar/cppcheck/archive/refs/tags/2.19.1.tar.gz
+          tar xz -f cppcheck.tar.gz
+          cmake -S cppcheck-2.19.1 -B cppcheck-build -DCMAKE_BUILD_TYPE=Release
+          cmake --build cppcheck-build -j$(sysctl -n hw.logicalcpu)
+          cmake --install cppcheck-build
+
+      - name: Run cppcheck test
+        run: ./scripts/cppcheck.bash
+
+  no_stackview:
+    name: No direct StackView usage in QML
+    if: ( github.repository == 'MerginMaps/mobile' ) && (!contains(github.event.head_commit.message, 'Translate '))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Check for direct StackView instantiation in QML files
+        run: |
+          # MMStackView.qml is the approved wrapper — exclude it from the search.
+          # Any other QML file with a bare "StackView" is using the raw Qt component
+          # instead of the wrapper, which breaks Squish test support.
+          matches=$(grep -rn --include="*.qml" \
+            --exclude="MMStackView.qml" \
+            '\<StackView[[:space:]]*{' \
+            app/qml/ || true)
+
+          if [ -n "$matches" ]; then
+            echo "ERROR: Direct StackView usage found. Use MMStackView instead:"
+            echo ""
+            echo "$matches"
+            exit 1
+          fi
+
+          echo "OK: No direct StackView usage found."

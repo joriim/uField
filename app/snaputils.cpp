@@ -1,0 +1,335 @@
+/***************************************************************************
+ *                                                                         *
+ *   This program is free software; you can redistribute it and/or modify  *
+ *   it under the terms of the GNU General Public License as published by  *
+ *   the Free Software Foundation; either version 2 of the License, or     *
+ *   (at your option) any later version.                                   *
+ *                                                                         *
+ ***************************************************************************/
+
+#include "qgis.h"
+
+#include "snaputils.h"
+#include "inpututils.h"
+
+SnapUtils::SnapUtils( QObject *parent )
+  : QObject{parent}
+{
+}
+
+QgsProject *SnapUtils::qgsProject() const
+{
+  return mQgsProject;
+}
+
+void SnapUtils::setQgsProject( QgsProject *newQgsProject )
+{
+  if ( !newQgsProject && !mQgsProject )
+    return;
+
+  if ( !newQgsProject || !mQgsProject || newQgsProject->homePath() != mQgsProject->homePath() )
+  {
+    mQgsProject = newQgsProject;
+    emit qgsProjectChanged( mQgsProject );
+
+    setupSnapping();
+  }
+}
+
+InputMapSettings *SnapUtils::mapSettings() const
+{
+  return mMapSettings;
+}
+
+void SnapUtils::setMapSettings( InputMapSettings *newMapSettings )
+{
+  if ( mMapSettings == newMapSettings )
+    return;
+
+  if ( mMapSettings )
+  {
+    disconnect( mMapSettings, nullptr, this, nullptr );
+  }
+
+  mMapSettings = newMapSettings;
+
+  if ( mMapSettings )
+  {
+    connect( mMapSettings, &InputMapSettings::extentChanged, this, &SnapUtils::onMapSettingsUpdated );
+    connect( mMapSettings, &InputMapSettings::destinationCrsChanged, this, &SnapUtils::onMapSettingsUpdated );
+    connect( mMapSettings, &InputMapSettings::mapUnitsPerPixelChanged, this, &SnapUtils::onMapSettingsUpdated );
+    connect( mMapSettings, &InputMapSettings::visibleExtentChanged, this, &SnapUtils::onMapSettingsUpdated );
+    connect( mMapSettings, &InputMapSettings::outputSizeChanged, this, &SnapUtils::onMapSettingsUpdated );
+    connect( mMapSettings, &InputMapSettings::outputDpiChanged, this, &SnapUtils::onMapSettingsUpdated );
+
+    mSnappingUtils.setMapSettings( mMapSettings->mapSettings() );
+  }
+
+  emit mapSettingsChanged( mMapSettings );
+
+  initializeRecordPosition();
+}
+
+void SnapUtils::getsnap()
+{
+  if ( !mDestinationLayer || !mMapSettings )
+  {
+    setRecordPoint( QgsPoint() );
+    setSnapped( false );
+    return;
+  }
+
+  // by default show crosshair in center, no snap
+  QgsPoint recordpoint = mMapSettings->screenToCoordinate( mCenterPosition );
+  QgsPoint centerPoint = InputUtils::transformPoint(
+                           mMapSettings->destinationCrs(),
+                           mDestinationLayer->crs(),
+                           mDestinationLayer->transformContext(),
+                           recordpoint );
+
+  // do not snap in the streaming mode
+  if ( !mUseSnapping )
+  {
+    setRecordPoint( centerPoint );
+    setSnapped( false );
+    return;
+  }
+
+  QgsPointLocator::Match snap = mSnappingUtils.snapToMap( QgsPointXY( recordpoint.x(), recordpoint.y() ) );
+  if ( snap.isValid() )
+  {
+    QgsPoint layerPoint;
+
+    // if snapped to vertex or line start/end point we get point coordinates from the
+    // geometry of the feature to which we have snapped. Otherwise get point found by
+    // the QgsPointLocator
+    if ( snap.layer() && ( snap.hasVertex() || snap.hasLineEndpoint() ) )
+    {
+      QgsFeature f;
+      QgsFeatureRequest request;
+      request.setFilterFid( snap.featureId() );
+      const bool fetched = snap.layer()->getFeatures( request ).nextFeature( f );
+      if ( fetched )
+      {
+        QgsVertexId vId;
+        if ( !f.geometry().vertexIdFromVertexNr( snap.vertexIndex(), vId ) )
+        {
+          setRecordPoint( centerPoint );
+          setSnapped( false );
+          return;
+        }
+        const QgsGeometry geom( f.geometry() );
+        layerPoint = InputUtils::transformPoint( snap.layer()->crs(), mDestinationLayer->crs(), mQgsProject->transformContext(), geom.constGet()->vertexAt( vId ) );
+      }
+    }
+    else
+    {
+      layerPoint = InputUtils::transformPoint( mMapSettings->destinationCrs(), mDestinationLayer->crs(), mQgsProject->transformContext(), QgsPoint( snap.point() ) );
+    }
+
+    setRecordPoint( layerPoint );
+    setSnapPoint( InputUtils::transformPointToScreenCoordinates( mDestinationLayer->crs(), mMapSettings, layerPoint ) );
+
+    if ( snap.hasVertex() )
+    {
+      setSnapType( SnapUtils::Vertex );
+    }
+    else if ( snap.hasArea() || snap.hasCentroid() || snap.hasMiddleSegment() )
+    {
+      setSnapType( SnapUtils::Other );
+    }
+    else
+    {
+      setSnapType( SnapUtils::Segment );
+    }
+
+    setSnapped( true );
+  }
+  else
+  {
+    setRecordPoint( centerPoint );
+    setSnapped( false );
+  }
+}
+
+void SnapUtils::clear()
+{
+  setSnapped( false );
+  setQgsProject( nullptr );
+  setMapSettings( nullptr );
+  setDestinationLayer( nullptr );
+
+  mSnappingUtils.setConfig( QgsSnappingConfig() );
+}
+
+void SnapUtils::onMapSettingsUpdated()
+{
+  if ( mMapSettings )
+  {
+    mSnappingUtils.setMapSettings( mMapSettings->mapSettings() );
+
+    getsnap();
+  }
+}
+
+QPointF SnapUtils::centerPosition() const
+{
+  return mCenterPosition;
+}
+
+void SnapUtils::setCenterPosition( QPointF newCenterPosition )
+{
+  if ( mCenterPosition == newCenterPosition )
+    return;
+  mCenterPosition = newCenterPosition;
+  emit centerPositionChanged( mCenterPosition );
+
+  initializeRecordPosition();
+}
+
+QPointF SnapUtils::snapPoint() const
+{
+  return mSnapPoint;
+}
+
+void SnapUtils::setSnapPoint( QPointF newSnapPoint )
+{
+  mSnapPoint = newSnapPoint;
+  emit snapPointChanged( mSnapPoint );
+}
+
+QgsPoint SnapUtils::recordPoint() const
+{
+  return mRecordPoint;
+}
+
+void SnapUtils::setRecordPoint( QgsPoint newRecordPoint )
+{
+  mRecordPoint = newRecordPoint;
+  emit recordPointChanged( mRecordPoint );
+}
+
+bool SnapUtils::snapped() const
+{
+  return mSnapped;
+}
+
+void SnapUtils::setSnapped( bool newSnapped )
+{
+  if ( mSnapped == newSnapped )
+    return;
+
+  if ( !newSnapped ) resetSnapPoint();
+
+  mSnapped = newSnapped;
+  emit snappedChanged( mSnapped );
+}
+
+const SnapUtils::SnapType &SnapUtils::snapType() const
+{
+  return mSnapType;
+}
+
+void SnapUtils::setSnapType( const SnapUtils::SnapType &newSnapType )
+{
+  if ( mSnapType == newSnapType )
+    return;
+  mSnapType = newSnapType;
+  emit snapTypeChanged( mSnapType );
+}
+
+bool SnapUtils::useSnapping() const
+{
+  return mUseSnapping;
+}
+
+void SnapUtils::setUseSnapping( bool useSnapping )
+{
+  if ( mUseSnapping == useSnapping )
+    return;
+
+  mUseSnapping = useSnapping;
+  emit useSnappingChanged( mUseSnapping );
+
+  getsnap();
+}
+
+void SnapUtils::setupSnapping()
+{
+  if ( !mQgsProject )
+  {
+    return;
+  }
+
+  int mode = mQgsProject->readNumEntry( QStringLiteral( "Mergin" ), QStringLiteral( "Snapping" ), 0 );
+  switch ( mode )
+  {
+    case 0:
+    {
+      mUseSnapping = false;
+      break;
+    }
+    case 1:
+    {
+      QgsSnappingConfig config;
+      config.setMode( Qgis::SnappingMode::AllLayers );
+      config.setTypeFlag( Qgis::SnappingType::Vertex | Qgis::SnappingType::Segment );
+      config.setTolerance( 20.0 * InputUtils::calculateDpRatio() );
+      config.setUnits( Qgis::MapToolUnit::Pixels );
+      config.setEnabled( true );
+
+      mSnappingUtils.setConfig( config );
+      mSnappingUtils.setEnableSnappingForInvisibleFeature( false );
+      break;
+    }
+    case 2:
+    {
+      QgsSnappingConfig config = mQgsProject->snappingConfig();
+      if ( config.units() == Qgis::MapToolUnit::Pixels )
+      {
+        config.setTolerance( config.tolerance() * InputUtils::calculateDpRatio() );
+      }
+      mSnappingUtils.setConfig( config );
+      break;
+    }
+  }
+  mSnappingUtils.setIndexingStrategy( QgsSnappingUtils::IndexExtent );
+}
+
+void SnapUtils::initializeRecordPosition()
+{
+  if ( !mMapSettings || ! mDestinationLayer || mCenterPosition == QPointF( -1, -1 ) )
+  {
+    return;
+  }
+
+  // take center position and convert it to destination layer CRS
+  QgsPoint recordpoint = mMapSettings->screenToCoordinate( mCenterPosition );
+  QgsPoint centerPoint = InputUtils::transformPoint(
+                           mMapSettings->destinationCrs(),
+                           mDestinationLayer->crs(),
+                           mDestinationLayer->transformContext(),
+                           recordpoint );
+
+  setRecordPoint( centerPoint );
+}
+
+void SnapUtils::resetSnapPoint()
+{
+  mSnapPoint = QPointF( -1, -1 );
+}
+
+QgsVectorLayer *SnapUtils::destinationLayer() const
+{
+  return mDestinationLayer;
+}
+
+void SnapUtils::setDestinationLayer( QgsVectorLayer *newDestinationLayer )
+{
+  if ( mDestinationLayer == newDestinationLayer )
+    return;
+  mDestinationLayer = newDestinationLayer;
+  emit destinationLayerChanged( mDestinationLayer );
+
+  initializeRecordPosition();
+}

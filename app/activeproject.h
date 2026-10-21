@@ -1,0 +1,252 @@
+﻿/***************************************************************************
+ *                                                                         *
+ *   This program is free software; you can redistribute it and/or modify  *
+ *   it under the terms of the GNU General Public License as published by  *
+ *   the Free Software Foundation; either version 2 of the License, or     *
+ *   (at your option) any later version.                                   *
+ *                                                                         *
+ ***************************************************************************/
+
+
+#ifndef ACTIVEPROJECT_H
+#define ACTIVEPROJECT_H
+
+#include <QObject>
+
+#include "qgsproject.h"
+
+#include "appsettings.h"
+#include "activelayer.h"
+#include "qgsauthmanager.h"
+#include "recordinglayersproxymodel.h"
+#include "localprojectsmanager.h"
+#include "autosynccontroller.h"
+#include "inputmapsettings.h"
+#include "merginprojectmetadata.h"
+#include "synchronizationoptions.h"
+#include "filter/filtercontroller.h"
+
+/**
+ * \brief The ActiveProject class can load a QGIS project and holds its data.
+ */
+class ActiveProject: public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY( LocalProject localProject READ localProject NOTIFY localProjectChanged ) // LocalProject instance of active project, changes when project is loaded
+    Q_PROPERTY( QgsProject *qgsProject READ qgsProject NOTIFY qgsProjectChanged ) // QgsProject instance of active project, never changes
+    Q_PROPERTY( AutosyncController *autosyncController READ autosyncController NOTIFY autosyncControllerChanged )
+    Q_PROPERTY( FilterController *filterController READ filterController NOTIFY filterControllerChanged )
+    Q_PROPERTY( InputMapSettings *mapSettings READ mapSettings WRITE setMapSettings NOTIFY mapSettingsChanged )
+    Q_PROPERTY( QString projectRole READ projectRole WRITE setProjectRole NOTIFY projectRoleChanged )
+
+    Q_PROPERTY( QString mapTheme READ mapTheme WRITE setMapTheme NOTIFY mapThemeChanged )
+    Q_PROPERTY( bool positionTrackingSupported READ positionTrackingSupported NOTIFY positionTrackingSupportedChanged )
+    Q_PROPERTY( bool mapSketchesEnabled READ mapSketchesEnabled NOTIFY mapSketchesEnabledChanged )
+    Q_PROPERTY( bool photoSketchingEnabled READ photoSketchingEnabled NOTIFY photoSketchingEnabledChanged )
+
+  public:
+    explicit ActiveProject(
+      AppSettings &appSettings
+      , ActiveLayer &activeLayer
+      , LocalProjectsManager &localProjectsManager
+      , QObject *parent = nullptr );
+
+    virtual ~ActiveProject();
+
+    //! Returns active project's QgsProject instance to do QGIS API magic
+    QgsProject *qgsProject() const;
+
+    //! Returns Input related info about active project
+    LocalProject localProject() const;
+
+    Q_INVOKABLE QString projectFullName() const;
+
+    /**
+     * Loads a .qgz/.qgs project file specified by filePath.
+     * \param filePath Path to project file.
+     */
+    Q_INVOKABLE bool load( const QString &filePath );
+
+    /**
+     * Applies map theme with 'name' to currently loaded QGIS project
+     * Invalidates active layer if it is no longer visible
+     */
+    Q_INVOKABLE void setMapTheme( const QString &name );
+
+    /**
+     * setActiveLayer sets active layer from layer
+     */
+    Q_INVOKABLE void setActiveLayer( QgsMapLayer *layer ) const;
+
+    /**
+     * Switches visibility of node from off to on or vice versa
+     * Invalidates current map theme in case layer's visibility is not aligned with it
+     * Invalidates active layer in case active layer is no longer visible
+     */
+    Q_INVOKABLE void switchLayerTreeNodeVisibility( QgsLayerTreeNode *node );
+
+    //! Returns boolean if any project is currently loaded
+    Q_INVOKABLE bool isProjectLoaded() const;
+
+    /**
+     * mapSettings method returns mapsettings pointer
+     */
+    InputMapSettings *mapSettings() const;
+
+    //! Returns autosyncController instance if autosync is allowed, otherwise returns nullptr
+    AutosyncController *autosyncController() const;
+
+    /**
+     * setMapSettings method sets mapSettings
+     * Method also reloads the layer list
+     */
+    void setMapSettings( InputMapSettings *mapSettings );
+
+    /**
+     * setMapSettingsLayers reloads layer list from current project
+     */
+    void updateMapSettingsLayers() const;
+
+    /**
+     * Return the QGIS log recorded during the loading phase of the project
+     */
+    Q_INVOKABLE QString projectLoadingLog() const;
+
+    //! A File on this path represents that project is loading and exists only during the process.
+    static const QString LOADING_FLAG_FILE_PATH;
+    static const int LOADING_FLAG_FILE_EXPIRATION_MS;
+
+    const QString &mapTheme() const;
+
+    bool positionTrackingSupported() const;
+
+    //! Returns true if the project has at least one layer that allows recording
+    Q_INVOKABLE bool projectHasRecordingLayers() const;
+
+    /**
+     * Returns role/permission level of current user for this project
+     */
+    Q_INVOKABLE QString projectRole() const;
+    void setProjectRole( const QString &role );
+
+    /**
+     * Returns if project layer allows recording (has geometry, editable, not position tracking layer, not map
+     * sketching layer) regardless of visibility
+     */
+    bool recordingAllowed( QgsMapLayer *layer ) const ;
+
+    //! Returns position tracking layer ID if exists
+    Q_INVOKABLE QString positionTrackingLayerId() const;
+
+    //! Returns all visible valid layers in the project
+    QList<QgsMapLayer *> getVisibleLayers() const;
+
+    bool mapSketchesEnabled() const;
+
+    //! Returns map sketches layer ID if exists
+    Q_INVOKABLE QString mapSketchesLayerId() const;
+
+    /**
+     * Returns whether the photo sketching is enabled in MM settings
+     */
+    bool photoSketchingEnabled() const;
+
+    /**
+     * Returns filterController, which loads any filters setup in QGIS plugin
+     */
+    FilterController *filterController() const;
+
+  signals:
+    void qgsProjectChanged();
+    void localProjectChanged( LocalProject project );
+
+    void projectWillBeReloaded();
+    void projectReloaded( QgsProject *project );
+    void loadingStarted();
+    void loadingFinished();
+
+    void projectReadingFailed( QString error );
+    void reportIssue( QString title, QString message );
+    void loadingErrorFound();
+    void qgisLogChanged();
+
+    void autosyncControllerChanged( AutosyncController *controller );
+
+    void mapSettingsChanged();
+
+    void syncActiveProject( const LocalProject &project, SyncOptions::RequestOrigin requestOrigin );
+
+    void mapThemeChanged( const QString &mapTheme );
+
+    void positionTrackingSupportedChanged();
+
+    // Emitted when the app (UI) should show tracking because there is a running tracking service
+    void startPositionTracking();
+
+    void projectRoleChanged();
+
+    void mapSketchesEnabledChanged();
+
+    void photoSketchingEnabledChanged();
+
+    void appStateChanged( Qt::ApplicationState state );
+
+    void filterControllerChanged( FilterController *controller );
+
+  public slots:
+    // Reloads project if current project path matches given path (it's the same project)
+    bool reloadProject( QString projectDir );
+
+    void setAutosyncEnabled( bool enabled );
+
+    void requestSync( SyncOptions::RequestOrigin requestOrigin = SyncOptions::RequestOrigin::ManualRequest );
+
+  private:
+
+    /**
+     * Build up warning list from loaded project
+     * Emits reportIssue for each issue found
+     * Returns true if there were errors found
+     */
+    bool validateProject();
+
+    //! Tries to match current visible layers with some theme and if it fails, invalidates current map theme
+    void updateMapTheme();
+
+    /** Checks whether active (recording) layer is still visible,
+     *  if not, sets first available layer as active;
+     *  sets nullptr if there are no other available layers
+     */
+    void updateActiveLayer();
+
+    //! Reloads layers in 'recording layers model'
+    void updateRecordingLayers();
+
+    // Clear all the authentication configurations from the database
+    void clearAllAuthenticationConfigs();
+
+    QgsProject *mQgsProject = nullptr;
+    LocalProject mLocalProject;
+
+    AppSettings &mAppSettings;
+    ActiveLayer &mActiveLayer;
+    QgsAuthManager *mAuthManager = nullptr;
+    LocalProjectsManager &mLocalProjectsManager;
+    InputMapSettings *mMapSettings = nullptr;
+    std::unique_ptr<AutosyncController> mAutosyncController;
+    std::unique_ptr<FilterController> mFilterController;
+
+    QString mProjectLoadingLog;
+    QString mProjectRole;
+
+    /**
+    * Reloads project.
+    * \param filePath Path to project file.
+    * \param force If true, reloads mProject on given path withload loading signals - suppose to be called internally,
+    * otherwise used only for loading a new projects (evoked by a user).
+    */
+    bool forceLoad( const QString &filePath, bool force );
+    QString mMapTheme;
+};
+
+#endif // ACTIVEPROJECT_H

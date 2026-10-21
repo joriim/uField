@@ -1,0 +1,91 @@
+/* keep in sync with /opt/Qt/<ver>/android/src/android/templates/build.gradle */
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        //noinspection AndroidGradlePluginVersion
+        classpath 'com.android.tools.build:gradle:8.11.1'
+    }
+}
+
+repositories {
+    google()
+    mavenCentral()
+}
+
+apply plugin: qtGradlePluginType
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar', '*.aar'])
+    implementation "androidx.appcompat:appcompat:1.7.1"
+    implementation "androidx.core:core:1.16.0"
+    implementation "androidx.core:core-splashscreen:1.2.0"
+    implementation "androidx.exifinterface:exifinterface:1.4.2"
+    implementation "com.google.android.gms:play-services-location:21.3.0"
+}
+
+android {
+    /*******************************************************
+     * The following variables:
+     * - androidBuildToolsVersion,
+     * - androidCompileSdkVersion
+     * - qtAndroidDir - holds the path to qt android files
+     *                   needed to build any Qt application
+     *                   on Android.
+     * - qtGradlePluginType - whether to build an app or a library
+     *
+     * are defined in gradle.properties file. This file is
+     * updated by QtCreator and androiddeployqt tools.
+     * Changing them manually might break the compilation!
+     *******************************************************/
+
+    namespace 'uk.co.lutraconsulting'
+    compileSdkVersion androidCompileSdkVersion
+    buildToolsVersion androidBuildToolsVersion
+    ndkVersion = androidNdkVersion
+    // don't get rid of this line as it inflates the final bundle size 5x
+    ndkPath '@MM_ANDROID_NDK_PATH@'
+
+    sourceSets {
+        main {
+            manifest.srcFile 'AndroidManifest.xml'
+            java.srcDirs = [qtAndroidDir + '/src', 'src', 'java']
+            aidl.srcDirs = [qtAndroidDir + '/src', 'src', 'aidl']
+            res.srcDirs = [qtAndroidDir + '/res', 'res']
+            resources.srcDirs = ['resources']
+            renderscript.srcDirs = ['src']
+            assets.srcDirs = ['assets']
+            jniLibs.srcDirs = ['libs']
+       }
+    }
+
+    tasks.withType(JavaCompile) {
+        options.incremental = true
+        options.compilerArgs += ['-Xlint:all']
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    lintOptions {
+        abortOnError = false
+    }
+
+    aaptOptions {
+        // Do not compress Qt binary resources file
+        noCompress 'rcc'
+    }
+
+    defaultConfig {
+        resConfig "en"
+        minSdkVersion qtMinSdkVersion
+        targetSdkVersion qtTargetSdkVersion
+        ndk.abiFilters = qtTargetAbiList.split(",")
+    }
+}

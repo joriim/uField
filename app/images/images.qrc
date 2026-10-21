@@ -1,0 +1,40 @@
+<RCC>
+    <qresource prefix="/images">
+        <file>LoadingIndicator.svg</file>
+        <file>CrosshairBackground.svg</file>
+        <file>CrosshairCenter.svg</file>
+        <file>CrosshairCircle.svg</file>
+        <file>CrosshairForeground.svg</file>
+        <file>CrosshairPlus.svg</file>
+        <file>Direction.svg</file>
+        <file>LutraLogo.svg</file>
+        <file>MapPin.svg</file>
+        <file>SyncImage.svg</file>
+        <file>MMLogo.svg</file>
+        <file>MMSymbol.svg</file>
+        <file>PositionTrackingRunning.svg</file>
+        <file>PositionTrackingStart.svg</file>
+        <file>ReachedDataLimit.svg</file>
+        <file>TrackingDirection.svg</file>
+        <file>UploadImage.svg</file>
+        <file>WarnLogoImage.svg</file>
+        <file>NoMapThemesImage.svg</file>
+        <file>ExternalBluetoothProvider.svg</file>
+        <file>ExternalGpsRed.svg</file>
+        <file>ExternalNetworkProvider.svg</file>
+        <file>NegativeMMSymbol.svg</file>
+        <file>PositiveMMSymbol.svg</file>
+        <file>NeutralMMSymbol.svg</file>
+        <file>CloseAccount.svg</file>
+        <file>Attention.svg</file>
+        <file>Bubble.svg</file>
+        <file>StreamingBoots.svg</file>
+        <file>StreamingBootsOrange.svg</file>
+        <file>NoWifi.svg</file>
+        <file>SyncFailed.svg</file>
+        <file>NoPermissions.svg</file>
+        <file>SignIn.svg</file>
+        <file>NoWorkspace.svg</file>
+        <file>BlueInfo.svg</file>
+    </qresource>
+</RCC>

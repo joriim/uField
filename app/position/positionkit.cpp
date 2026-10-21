@@ -1,0 +1,686 @@
+/***************************************************************************
+ *                                                                         *
+ *   This program is free software; you can redistribute it and/or modify  *
+ *   it under the terms of the GNU General Public License as published by  *
+ *   the Free Software Foundation; either version 2 of the License, or     *
+ *   (at your option) any later version.                                   *
+ *                                                                         *
+ ***************************************************************************/
+
+#include "positionkit.h"
+
+#include <QQmlEngine>
+
+#include "coreutils.h"
+#include "mmconfig.h"
+#include "appsettings.h"
+#include "inpututils.h"
+
+#if WITH_BLUETOOTH_PROVIDERS
+#include "providers/bluetoothpositionprovider.h"
+#endif
+#include "providers/internalpositionprovider.h"
+#include "providers/simulatedpositionprovider.h"
+#include "providers/networkpositionprovider.h"
+#if WITH_TRIMBLE_PROVIDERS
+#include "providers/trimblepositionprovider.h"
+#endif
+#ifdef ANDROID
+#include "providers/androidpositionprovider.h"
+#include <android/log.h>
+#endif
+
+PositionKit::PositionKit( QObject *parent )
+  : QObject( parent )
+{
+  mPositionTransformer = std::make_unique<PositionTransformer>( positionCrs3DEllipsoidHeight(), positionCrs3D(), mElevationTransformationEnabled, QgsCoordinateTransformContext() );
+}
+
+QgsCoordinateReferenceSystem PositionKit::positionCrs3D()
+{
+  if ( mElevationTransformationEnabled && mPositionCrs3D.isValid() )
+  {
+    return mPositionCrs3D;
+  }
+  return QgsCoordinateReferenceSystem::fromEpsgId( 9707 );
+}
+
+QString PositionKit::positionCrs3DGeoidModelName()
+{
+  if ( mElevationTransformationEnabled )
+  {
+    return mVerticalCrs.description();
+  }
+
+  // for internal providers return EGM96 model if it's not mock, and we haven't got orthometric height
+  if ( mPositionProvider->type() == QStringLiteral( "internal" ) && !mPosition.isMock && !std::isnan( mPosition.elevation_diff ) )
+  {
+    return QgsCoordinateReferenceSystem::fromEpsgId( 5773 ).description();
+  }
+
+  if ( mPositionProvider->type() == QStringLiteral( "external_trimble" ) )
+  {
+#if WITH_TRIMBLE_PROVIDERS
+    return dynamic_cast<TrimblePositionProvider *>( mPositionProvider.get() )->geoidModelName();
+#endif
+  }
+
+  return {};
+}
+
+QgsCoordinateReferenceSystem PositionKit::positionCrs2D()
+{
+  return QgsCoordinateReferenceSystem::fromEpsgId( 4326 );
+}
+
+QgsCoordinateReferenceSystem PositionKit::positionCrs3DEllipsoidHeight()
+{
+  return QgsCoordinateReferenceSystem::fromEpsgId( 4979 );
+}
+
+void PositionKit::startUpdates()
+{
+  if ( mPositionProvider )
+    mPositionProvider->startUpdates();
+}
+
+void PositionKit::stopUpdates()
+{
+  if ( mPositionProvider )
+    mPositionProvider->stopUpdates();
+}
+
+void PositionKit::setPositionProvider( AbstractPositionProvider *provider )
+{
+  if ( mPositionProvider.get() == provider )
+    return;
+
+  if ( mPositionProvider.get() && provider && mPositionProvider->id() == provider->id() )
+    return;
+
+  if ( mPositionProvider )
+  {
+    mPositionProvider->disconnect();
+    mPositionProvider->closeProvider();
+  }
+
+  mPositionProvider.reset( provider );
+
+  if ( mPositionProvider )
+  {
+    connect( mPositionProvider.get(), &AbstractPositionProvider::positionChanged, this, &PositionKit::parsePositionUpdate );
+    CoreUtils::log( QStringLiteral( "PositionKit" ), QStringLiteral( "Changed position provider to: %1" ).arg( provider->id() ) );
+  }
+  else // passed nullptr
+  {
+    CoreUtils::log( QStringLiteral( "PositionKit" ), QStringLiteral( "Position provider has been removed" ) );
+  }
+
+  emit positionProviderChanged( provider );
+  emit positionProviderNameChanged();
+
+  // reset last position data
+  parsePositionUpdate( GeoPosition() );
+}
+
+QString PositionKit::positionProviderName() const
+{
+  if ( isMockPosition() )
+  {
+    return tr( "External (Mock)" );
+  }
+  return mPositionProvider->name();
+}
+
+AbstractPositionProvider *PositionKit::constructProvider( const QString &type, const QString &id, const QString &name )
+{
+
+#if WITH_BLUETOOTH_PROVIDERS
+  if ( type == QStringLiteral( "external_bt" ) )
+  {
+    AbstractPositionProvider *provider = new BluetoothPositionProvider( id, name, *mPositionTransformer );
+    QQmlEngine::setObjectOwnership( provider, QQmlEngine::CppOwnership );
+    return provider;
+  }
+#endif
+
+#if WITH_TRIMBLE_PROVIDERS
+  if ( type == QStringLiteral( "external_trimble" ) )
+  {
+    AbstractPositionProvider *provider = new TrimblePositionProvider( id, name, *mPositionTransformer );
+    QQmlEngine::setObjectOwnership( provider, QQmlEngine::CppOwnership );
+    return provider;
+  }
+#endif
+
+  if ( type == QStringLiteral( "external_ip" ) )
+  {
+    QString providerName( name );
+    if ( providerName.isEmpty() )
+    {
+      QStringList providerNames;
+      for ( const QVariant &provider : mAppSettings->savedPositionProviders() )
+      {
+        providerNames << provider.toStringList().at( 0 );
+      }
+      providerName = InputUtils::getUniqueString( tr( "Network device" ), providerNames );
+    }
+    AbstractPositionProvider *provider = new NetworkPositionProvider( id, providerName, *mPositionTransformer );
+    QQmlEngine::setObjectOwnership( provider, QQmlEngine::CppOwnership );
+    return provider;
+  }
+
+  // from this point type == internal
+
+  if ( id == QStringLiteral( "simulated" ) )
+  {
+    AbstractPositionProvider *provider = new SimulatedPositionProvider( *mPositionTransformer );
+    QQmlEngine::setObjectOwnership( provider, QQmlEngine::CppOwnership );
+    return provider;
+  }
+
+#ifdef ANDROID
+  if ( id == QStringLiteral( "android_fused" ) || id == QStringLiteral( "android_gps" ) )
+  {
+    const bool fused = ( id == QStringLiteral( "android_fused" ) );
+    if ( fused && !AndroidPositionProvider::isFusedAvailable() )
+    {
+      // TODO: inform user + use AndroidPositionProvider::fusedErrorString() output?
+
+      // fallback to the default - at this point the Qt Positioning implementation
+      AbstractPositionProvider *provider = new InternalPositionProvider( *mPositionTransformer );
+      QQmlEngine::setObjectOwnership( provider, QQmlEngine::CppOwnership );
+      return provider;
+    }
+    __android_log_print( ANDROID_LOG_INFO, "CPP", "MAKE PROVIDER %d", fused );
+    AbstractPositionProvider *provider = new AndroidPositionProvider( fused, *mPositionTransformer );
+    QQmlEngine::setObjectOwnership( provider, QQmlEngine::CppOwnership );
+    return provider;
+  }
+#endif
+
+  // id == devicegps
+  {
+    AbstractPositionProvider *provider = new InternalPositionProvider( *mPositionTransformer );
+    QQmlEngine::setObjectOwnership( provider, QQmlEngine::CppOwnership );
+    return provider;
+  }
+}
+
+AbstractPositionProvider *PositionKit::constructActiveProvider( const AppSettings *appsettings )
+{
+  if ( !appsettings )
+    return nullptr;
+
+  const QString &providerId = appsettings->activePositionProviderId();
+
+  if ( providerId.isEmpty() ) // nothing has been written to qsettings
+  {
+    if ( InputUtils::isMobilePlatform() )
+    {
+#ifdef ANDROID
+      return constructProvider( QStringLiteral( "internal" ), QStringLiteral( "android_fused" ) );
+#else
+      return constructProvider( QStringLiteral( "internal" ), QStringLiteral( "devicegps" ) );
+#endif
+    }
+    // desktop
+    return constructProvider( QStringLiteral( "internal" ), QStringLiteral( "simulated" ) );
+  }
+  if ( providerId == QStringLiteral( "devicegps" ) || providerId == QStringLiteral( "simulated" ) ||
+       providerId == QStringLiteral( "android_fused" ) || providerId == QStringLiteral( "android_gps" ) )
+  {
+    return constructProvider( QStringLiteral( "internal" ), providerId );
+  }
+
+  // find name & type of the active provider
+  QString providerName;
+  // Migration from single external provider to multiple currently, missing type == bluetooth provider
+  QString providerType = QStringLiteral( "external_bt" );
+  QVariantList providers = appsettings->savedPositionProviders();
+
+  for ( const QVariant &provider : providers )
+  {
+    QVariantList providerData = provider.toList();
+    if ( providerData.length() < 2 )
+    {
+      CoreUtils::log( QStringLiteral( "PositionKit" ), QStringLiteral( "Found provider with insufficient data" ) );
+      continue;
+    }
+
+    if ( providerData[1] == providerId )
+    {
+      providerName = providerData[0].toString();
+      if ( !providerData.at( 2 ).isNull() )
+      {
+        providerType = providerData[2].toString();
+      }
+    }
+  }
+
+  return constructProvider( providerType, providerId, providerName );
+}
+
+bool PositionKit::hasTrimbleSupport()
+{
+#if WITH_TRIMBLE_PROVIDERS
+  return true;
+#else
+  return false;
+#endif
+}
+
+bool PositionKit::hasBluetoothSupport()
+{
+#if WITH_BLUETOOTH_PROVIDERS
+  return true;
+#else
+  return false;
+#endif
+}
+
+void PositionKit::parsePositionUpdate( const GeoPosition &newPosition )
+{
+  bool hasAnythingChanged = false;
+
+  if ( !qgsDoubleNear( newPosition.latitude, mPosition.latitude ) )
+  {
+    mPosition.latitude = newPosition.latitude;
+    emit latitudeChanged( mPosition.latitude );
+    emit positionCoordinateChanged( positionCoordinate() );
+    hasAnythingChanged = true;
+  }
+
+  if ( !qgsDoubleNear( newPosition.longitude, mPosition.longitude ) )
+  {
+    mPosition.longitude = newPosition.longitude;
+    emit longitudeChanged( mPosition.longitude );
+    emit positionCoordinateChanged( positionCoordinate() );
+    hasAnythingChanged = true;
+  }
+
+  if ( !qgsDoubleNear( newPosition.elevation - ( requireAntennaHeightTransform() ? antennaHeight() : 0 ), mPosition.elevation ) )
+  {
+    mPosition.elevation = newPosition.elevation - ( requireAntennaHeightTransform() ? antennaHeight() : 0 );
+    emit altitudeChanged( mPosition.elevation );
+    hasAnythingChanged = true;
+  }
+
+  if ( !qgsDoubleNear( newPosition.elevation_diff, mPosition.elevation_diff ) )
+  {
+    mPosition.elevation_diff = newPosition.elevation_diff;
+    emit geoidSeparationChanged( mPosition.elevation_diff );
+    hasAnythingChanged = true;
+  }
+
+  if ( newPosition.hasValidPosition() != mHasPosition )
+  {
+    mHasPosition = newPosition.hasValidPosition();
+    emit hasPositionChanged( mHasPosition );
+    hasAnythingChanged = true;
+  }
+
+  if ( !qgsDoubleNear( newPosition.hacc, mPosition.hacc ) )
+  {
+    mPosition.hacc = newPosition.hacc;
+    emit horizontalAccuracyChanged( mPosition.hacc );
+    hasAnythingChanged = true;
+  }
+
+  if ( !qgsDoubleNear( newPosition.vacc, mPosition.vacc ) )
+  {
+    mPosition.vacc = newPosition.vacc;
+    emit verticalAccuracyChanged( mPosition.vacc );
+    hasAnythingChanged = true;
+  }
+
+  if ( !qgsDoubleNear( newPosition.speed, mPosition.speed ) )
+  {
+    mPosition.speed = newPosition.speed;
+    emit speedChanged( mPosition.speed );
+    hasAnythingChanged = true;
+  }
+
+  if ( !qgsDoubleNear( newPosition.verticalSpeed, mPosition.verticalSpeed ) )
+  {
+    mPosition.verticalSpeed = newPosition.verticalSpeed;
+    emit verticalSpeedChanged( mPosition.verticalSpeed );
+    hasAnythingChanged = true;
+  }
+
+  if ( !qgsDoubleNear( newPosition.direction, mPosition.direction ) )
+  {
+    mPosition.direction = newPosition.direction;
+    emit directionChanged( mPosition.direction );
+    hasAnythingChanged = true;
+  }
+
+  if ( !qgsDoubleNear( newPosition.magneticVariation, mPosition.magneticVariation ) )
+  {
+    mPosition.magneticVariation = newPosition.magneticVariation;
+    emit magneticVariationChanged( mPosition.magneticVariation );
+    hasAnythingChanged = true;
+  }
+
+  if ( newPosition.satellitesVisible != mPosition.satellitesVisible )
+  {
+    mPosition.satellitesVisible = newPosition.satellitesVisible;
+    emit satellitesVisibleChanged( mPosition.satellitesVisible );
+    hasAnythingChanged = true;
+  }
+
+  if ( newPosition.satellitesUsed != mPosition.satellitesUsed )
+  {
+    mPosition.satellitesUsed = newPosition.satellitesUsed;
+    emit satellitesUsedChanged( mPosition.satellitesUsed );
+    hasAnythingChanged = true;
+  }
+
+  if ( !qgsDoubleNear( newPosition.hdop, mPosition.hdop ) )
+  {
+    mPosition.hdop = newPosition.hdop;
+    emit hdopChanged( mPosition.hdop );
+    hasAnythingChanged = true;
+  }
+
+  if ( !qgsDoubleNear( newPosition.vdop, mPosition.vdop ) )
+  {
+    mPosition.vdop = newPosition.vdop;
+    emit vdopChanged( mPosition.vdop );
+    hasAnythingChanged = true;
+  }
+
+  if ( !qgsDoubleNear( newPosition.pdop, mPosition.pdop ) )
+  {
+    mPosition.pdop = newPosition.pdop;
+    emit pdopChanged( mPosition.pdop );
+    hasAnythingChanged = true;
+  }
+
+  if ( newPosition.fixStatusString != mPosition.fixStatusString )
+  {
+    mPosition.fixStatusString = newPosition.fixStatusString;
+    emit fixChanged( mPosition.fixStatusString );
+    hasAnythingChanged = true;
+  }
+
+  if ( newPosition.qualityIndicator != mPosition.qualityIndicator )
+  {
+    mPosition.qualityIndicator = newPosition.qualityIndicator;
+    hasAnythingChanged = true;
+  }
+
+  if ( newPosition.utcDateTime != mPosition.utcDateTime )
+  {
+    mPosition.utcDateTime = newPosition.utcDateTime;
+    emit lastReadChanged( mPosition.utcDateTime );
+    hasAnythingChanged = true;
+  }
+
+  if ( newPosition.isMock != mPosition.isMock )
+  {
+    mPosition.isMock = newPosition.isMock;
+    emit isMockPositionChanged( mPosition.isMock );
+    hasAnythingChanged = true;
+    // we also change the name
+    emit positionProviderNameChanged();
+  }
+
+  if ( hasAnythingChanged )
+  {
+    emit positionChanged( mPosition );
+  }
+}
+
+void PositionKit::setVerticalCrs( const QgsCoordinateReferenceSystem &verticalCrs )
+{
+  mVerticalCrs = verticalCrs;
+
+  if ( mVerticalCrs.isValid() )
+  {
+    QString compoundCrsError{};
+    const QgsCoordinateReferenceSystem compoundCrs = QgsCoordinateReferenceSystem::createCompoundCrs( positionCrs2D(), mVerticalCrs, compoundCrsError );
+    if ( compoundCrs.isValid() && compoundCrsError.isEmpty() )
+    {
+      mPositionCrs3D =  compoundCrs;
+      return;
+    }
+    CoreUtils::log( QStringLiteral( "PositionKit" ), QStringLiteral( "Failed to create custom compound crs: %1" ).arg( compoundCrsError ) );
+  }
+
+  mPositionCrs3D = QgsCoordinateReferenceSystem();
+}
+
+void PositionKit::setElevationTransformationEnabled( const bool elevationTransformationEnabled )
+{
+  mElevationTransformationEnabled = elevationTransformationEnabled;
+}
+
+void PositionKit::appStateChanged( const Qt::ApplicationState state )
+{
+  if ( state == Qt::ApplicationActive )
+  {
+    startUpdates();
+  }
+  else
+  {
+    stopUpdates();
+  }
+}
+
+void PositionKit::refreshPositionTransformer( const QgsCoordinateTransformContext &transformContext )
+{
+  QgsCoordinateReferenceSystem srcCrs;
+  if ( mPositionProvider->type() == QStringLiteral( "external_trimble" ) )
+  {
+#if WITH_TRIMBLE_PROVIDERS
+    srcCrs = dynamic_cast<TrimblePositionProvider *>( mPositionProvider.get() )->sourceCrs();
+#endif
+  }
+  else
+  {
+    srcCrs = positionCrs3DEllipsoidHeight();
+  }
+  const QgsCoordinateReferenceSystem destCrs = positionCrs3D();
+
+  QgsCoordinateTransformContext context = transformContext;
+
+  // Find the project-configured PROJ op for this vertical CRS
+  QString projString;
+  if ( mVerticalCrs.isValid() )
+  {
+    const auto projectOps = context.coordinateOperations();
+    for ( auto it = projectOps.constBegin(); it != projectOps.constEnd(); ++it )
+    {
+      const QgsCoordinateReferenceSystem opDestCrs( it.key().second );
+      if ( opDestCrs.isValid() && opDestCrs.verticalCrs() == mVerticalCrs )
+      {
+        projString = it.value();
+        break;
+      }
+    }
+  }
+
+  if ( !projString.isEmpty() )
+  {
+    context.addCoordinateOperation( srcCrs, destCrs, projString, true );
+  }
+
+  mPositionTransformer->setDestinationCrs( destCrs );
+  mPositionTransformer->setElevationTransformationEnabled( mElevationTransformationEnabled );
+  mPositionTransformer->setTransformContext( context );
+}
+
+double PositionKit::latitude() const
+{
+  return mPosition.latitude;
+}
+
+double PositionKit::longitude() const
+{
+  return mPosition.longitude;
+}
+
+double PositionKit::altitude() const
+{
+  return mPosition.elevation;
+}
+
+double PositionKit::geoidSeparation() const
+{
+  return mPosition.elevation_diff;
+}
+
+QgsPoint PositionKit::positionCoordinate() const
+{
+  if ( mPosition.hasValidPosition() )
+    return { mPosition.longitude, mPosition.latitude, mPosition.elevation };
+
+  return {};
+}
+
+bool PositionKit::hasPosition() const
+{
+  return mHasPosition;
+}
+
+double PositionKit::horizontalAccuracy() const
+{
+  return mPosition.hacc;
+}
+
+double PositionKit::verticalAccuracy() const
+{
+  return mPosition.vacc;
+}
+
+double PositionKit::direction() const
+{
+  return mPosition.direction;
+}
+
+double PositionKit::magneticVariation() const
+{
+  return mPosition.magneticVariation;
+}
+
+double PositionKit::speed() const
+{
+  return mPosition.speed;
+}
+
+double PositionKit::verticalSpeed() const
+{
+  return mPosition.verticalSpeed;
+}
+
+const QDateTime &PositionKit::lastRead() const
+{
+  return mPosition.utcDateTime;
+}
+
+int PositionKit::satellitesUsed() const
+{
+  return mPosition.satellitesUsed;
+}
+
+int PositionKit::satellitesVisible() const
+{
+  return mPosition.satellitesVisible;
+}
+
+QString PositionKit::fix() const
+{
+  return mPosition.fixStatusString;
+}
+
+double PositionKit::hdop() const
+{
+  return mPosition.hdop;
+}
+
+double PositionKit::vdop() const
+{
+  return mPosition.vdop;
+}
+
+double PositionKit::pdop() const
+{
+  return mPosition.pdop;
+}
+
+AbstractPositionProvider *PositionKit::positionProvider() const
+{
+  return mPositionProvider.get();
+}
+
+const GeoPosition &PositionKit::position() const
+{
+  return mPosition;
+}
+
+bool PositionKit::isMockPosition() const
+{
+  return mPosition.isMock;
+}
+
+AppSettings *PositionKit::appSettings() const
+{
+  return mAppSettings;
+}
+
+void PositionKit::setAppSettings( AppSettings *appSettings )
+{
+  if ( mAppSettings != appSettings )
+  {
+    if ( mAppSettings )
+    {
+      disconnect( mAppSettings );
+    }
+
+    mAppSettings = appSettings;
+    if ( mAppSettings )
+    {
+      connect( mAppSettings, &AppSettings::gpsAntennaHeightChanged, this, &PositionKit::antennaHeightChanged );
+    }
+    emit appSettingsChanged();
+    emit antennaHeightChanged();
+  }
+}
+
+double PositionKit::antennaHeight() const
+{
+  // trimble provider has antenna height defined in TMM, so we "block" application setup
+  if ( mPositionProvider && mPositionProvider->type() == QStringLiteral( "external_trimble" ) )
+  {
+#if WITH_TRIMBLE_PROVIDERS
+    return dynamic_cast<TrimblePositionProvider *>( mPositionProvider.get() )->antennaHeight();
+#else
+    return 0;
+#endif
+  }
+
+  if ( mAppSettings )
+    return mAppSettings->gpsAntennaHeight();
+
+  return 0;
+}
+
+bool PositionKit::requireAntennaHeightTransform() const
+{
+  if ( mPositionProvider && mPositionProvider->type() == QStringLiteral( "external_trimble" ) )
+  {
+    return false;
+  }
+  return true;
+}
+
+void PositionKit::openAntennaHeightPage() const
+{
+#if WITH_TRIMBLE_PROVIDERS
+  if ( mPositionProvider->type() == QStringLiteral( "external_trimble" ) )
+  {
+    dynamic_cast<TrimblePositionProvider *>( mPositionProvider.get() )->openAntennaHeightPage();
+  }
+#endif
+}

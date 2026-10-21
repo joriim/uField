@@ -1,0 +1,927 @@
+/***************************************************************************
+ *                                                                         *
+ *   This program is free software; you can redistribute it and/or modify  *
+ *   it under the terms of the GNU General Public License as published by  *
+ *   the Free Software Foundation; either version 2 of the License, or     *
+ *   (at your option) any later version.                                   *
+ *                                                                         *
+ ***************************************************************************/
+
+#include "mmconfig.h"
+
+#include <QFontDatabase>
+#include <QGuiApplication>
+#include <QQmlApplicationEngine>
+#include <QQmlComponent>
+#include <QtDebug>
+#include <QQmlError>
+#include <QScreen>
+#include <QWindow>
+#include <QtGlobal>
+#include <QQmlContext>
+#include <QQuickWindow>
+#include <QLocale>
+#include <QImageReader>
+#include <QStandardPaths>
+#ifdef MM_TEST
+#include "test/inputtests.h"
+#endif
+#include <qqml.h>
+#include "qgsauthmanager.h"
+#include <qgsmessagelog.h>
+#include "qgsconfig.h"
+#include "qgsproviderregistry.h"
+#include "qgsmaplayerproxymodel.h"
+#include "qgsnetworkaccessmanager.h"
+#include "geodiffutils.h"
+#include "merginerrortypes.h"
+#include "androidutils.h"
+#include "ios/iosutils.h"
+#include "inpututils.h"
+#include "coreutils.h"
+#include "position/positiondirection.h"
+#include "mapthemesmodel.h"
+#include "merginapi.h"
+#include "merginapistatus.h"
+#include "merginservertype.h"
+#include "merginsubscriptioninfo.h"
+#include "merginsubscriptionstatus.h"
+#include "merginprojectstatusmodel.h"
+#include "recordinglayersproxymodel.h"
+#include "layersmodel.h"
+#include "activelayer.h"
+#include "merginuserauth.h"
+#include "merginuserinfo.h"
+#include "variablesmanager.h"
+#include "inputhelp.h"
+#include "inputprojutils.h"
+#include "projectwizard.h"
+#include "qrcodedecoder.h"
+#include "inputexpressionfunctions.h"
+#include "compass.h"
+#include "attributepreviewcontroller.h"
+#include "qgsfeature.h"
+#include "qgslogger.h"
+#include "qgsmaplayer.h"
+#include "qgsmessagelog.h"
+#include "qgspointxy.h"
+#include "qgsproject.h"
+#include "qgsrelationmanager.h"
+#include "qgscoordinatetransformcontext.h"
+#include "qgsvectorlayer.h"
+#include "qgsunittypes.h"
+#include "mmstyle.h"
+#include "notificationmodel.h"
+
+#include "rememberattributescontroller.h"
+#include "attributecontroller.h"
+#include "attributedata.h"
+#include "attributeformmodel.h"
+#include "attributeformproxymodel.h"
+#include "attributetabmodel.h"
+#include "attributetabproxymodel.h"
+#include "identifykit.h"
+#include "featurelayerpair.h"
+
+#include "inputmapcanvasmap.h"
+#include "inputmapsettings.h"
+#include "inputmaptransform.h"
+
+#include "position/positionkit.h"
+#include "scalebarkit.h"
+#include "featuresmodel.h"
+#include "staticfeaturesmodel.h"
+#include "layerfeaturesmodel.h"
+#include "relationfeaturesmodel.h"
+#include "relationreferencefeaturesmodel.h"
+#include "fieldvalidator.h"
+#include "valuerelationfeaturesmodel.h"
+#include "valuerelationcontroller.h"
+#include "snaputils.h"
+#include "guidelinecontroller.h"
+#include "multieditmanager.h"
+#include "mixedattributevalue.h"
+#include "photosketchingcontroller.h"
+#include "mapsketchingcontroller.h"
+
+#include "projectsmodel.h"
+#include "projectsproxymodel.h"
+#include "project.h"
+#include "qgsproject.h"
+#include "bluetoothdiscoverymodel.h"
+#include "position/mapposition.h"
+#include "position/providers/positionprovidersmodel.h"
+#include "position/providers/abstractpositionprovider.h"
+#include "position/tracking/positiontrackingmanager.h"
+#include "position/tracking/positiontrackinghighlight.h"
+#include "synchronizationmanager.h"
+#include "synchronizationerror.h"
+
+#include "maptools/abstractmaptool.h"
+#include "maptools/recordingmaptool.h"
+#include "maptools/splittingmaptool.h"
+#include "maptools/measurementmaptool.h"
+
+#include "layer/layertreemodel.h"
+#include "layer/layertreemodelpixmapprovider.h"
+#include "layer/layertreesortfiltermodel.h"
+#include "layer/layertreeflatmodel.h"
+#include "layer/layertreeflatmodelpixmapprovider.h"
+#include "layer/layertreeflatsortfiltermodel.h"
+#include "layer/layerdetaildata.h"
+#include "layer/layerdetaillegendimageprovider.h"
+
+#include "workspacesmodel.h"
+#include "workspacesproxymodel.h"
+#include "invitationsmodel.h"
+#include "invitationsproxymodel.h"
+#include "changelogmodel.h"
+
+#include "streamingintervaltype.h"
+
+#include <QQuickStyle>
+
+#ifdef MOBILE_OS
+#include <QFile>
+#include <QDir>
+#include <QStandardPaths>
+#endif
+
+#ifdef DESKTOP_OS
+#include <QCommandLineParser>
+#include <qgis.h>
+#endif
+
+#include "qgsapplication.h"
+#include "activeproject.h"
+#include "appsettings.h"
+
+static QString getDataDir()
+{
+#ifdef QGIS_QUICK_DATA_PATH
+  QString dataPathRaw( STR( QGIS_QUICK_DATA_PATH ) );
+
+#ifdef ANDROID
+  dataPathRaw = AndroidUtils::externalStorageAppFolder();
+#endif
+
+#ifdef Q_OS_IOS
+  QString docsLocation = QStandardPaths::standardLocations( QStandardPaths::DocumentsLocation ).value( 0 );
+
+  QDir myDir( docsLocation );
+  if ( !myDir.exists() )
+  {
+    myDir.mkpath( docsLocation );
+  }
+  dataPathRaw = docsLocation + "/" + dataPathRaw;
+#endif
+
+#ifdef Q_OS_WIN32
+  QString appLocation = QStandardPaths::writableLocation( QStandardPaths::AppDataLocation );
+
+  QDir myDir( appLocation );
+  if ( !myDir.exists() )
+  {
+    myDir.mkpath( appLocation );
+  }
+  dataPathRaw = appLocation + "/" + dataPathRaw;
+#endif
+
+  qputenv( "QGIS_QUICK_DATA_PATH", dataPathRaw.toUtf8().constData() );
+#else
+  qDebug( "== Must set QGIS_QUICK_DATA_PATH in order to get QGIS Quick running! ==" );
+#endif
+  QString dataDir = QString::fromLocal8Bit( qgetenv( "QGIS_QUICK_DATA_PATH" ) ) ;
+  qDebug() << "QGIS_QUICK_DATA_PATH: " << dataDir;
+  return dataDir;
+}
+
+static void setEnvironmentQgisPrefixPath()
+{
+#ifdef DESKTOP_OS
+#ifdef QGIS_PREFIX_PATH
+  qputenv( "QGIS_PREFIX_PATH", STR( QGIS_PREFIX_PATH ) );
+#endif
+  if ( QString::fromLocal8Bit( qgetenv( "QGIS_PREFIX_PATH" ) ).isEmpty() )
+  {
+    // if not on Android, QGIS_PREFIX_PATH env variable should have been set already or defined as C++ define
+    qDebug( "== Must set QGIS_PREFIX_PATH in order to get QGIS Quick module running! ==" );
+  }
+#endif
+
+#if defined (ANDROID) || defined (Q_OS_IOS)
+  QDir myDir( QDir::homePath() );
+  myDir.cdUp();
+  QString prefixPath = myDir.absolutePath();  // something like: /data/data/org.qgis.quick
+  qputenv( "QGIS_PREFIX_PATH", prefixPath.toUtf8().constData() );
+#elif defined (Q_OS_WIN32)
+  QString prefixPath = QCoreApplication::applicationDirPath();
+  qputenv( "QGIS_PREFIX_PATH", prefixPath.toUtf8().constData() );
+#endif
+
+  qDebug() << "QGIS_PREFIX_PATH: " << QString::fromLocal8Bit( qgetenv( "QGIS_PREFIX_PATH" ) );
+}
+
+static void init_qgis( const QString &pkgPath )
+{
+  QgsApplication::init();
+
+#ifdef MOBILE_OS
+  // QGIS plugins on Android are in the same path as other libraries
+  QgsApplication::setPluginPath( QApplication::applicationDirPath() );
+#endif
+  QgsApplication::setPkgDataPath( pkgPath );
+
+  QgsApplication::initQgis();
+
+  // make sure the DB exists - otherwise custom projections will be failing
+  if ( !QgsApplication::createDatabase() )
+    qDebug( "Can't create qgis user DB!!!" );
+
+  qDebug( "qgis providers:\n%s", QgsProviderRegistry::instance()->pluginList().toLatin1().data() );
+}
+
+static void init_pg( const QString &dataDir )
+{
+  QFileInfo pgFile( QStringLiteral( "%1/pg_service.conf" ).arg( dataDir ) );
+  if ( pgFile.exists() && pgFile.isReadable() )
+  {
+    qputenv( "PGSYSCONFDIR", dataDir.toUtf8() );
+    CoreUtils::log( QStringLiteral( "PostgreSQL" ), QStringLiteral( "found pg_service.conf, setting PGSYSCONFDIR" ) );
+  }
+}
+
+void initDeclarative()
+{
+  qmlRegisterUncreatableType<MerginUserAuth>( "mm", 1, 0, "MerginUserAuth", "" );
+  qmlRegisterUncreatableType<MerginUserInfo>( "mm", 1, 0, "MerginUserInfo", "" );
+  qmlRegisterUncreatableType<MerginSubscriptionInfo>( "mm", 1, 0, "MerginSubscriptionInfo", "" );
+  qmlRegisterUncreatableType<ActiveProject>( "mm", 1, 0, "ActiveProject", "" );
+  qmlRegisterUncreatableType<SynchronizationManager>( "mm", 1, 0, "SynchronizationManager", "" );
+  qmlRegisterUncreatableType<SynchronizationError>( "mm", 1, 0, "SyncError", "SyncError Enum" );
+  qmlRegisterUncreatableType<MerginApiStatus>( "mm", 1, 0, "MerginApiStatus", "MerginApiStatus Enum" );
+  qmlRegisterUncreatableType<MerginServerType>( "mm", 1, 0, "MerginServerType", "MerginServerType Enum" );
+  qmlRegisterUncreatableType<MerginSubscriptionStatus>( "mm", 1, 0, "MerginSubscriptionStatus", "MerginSubscriptionStatus Enum" );
+  qmlRegisterUncreatableType<MerginProjectStatusModel>( "mm", 1, 0, "MerginProjectStatusModel", "Enum" );
+  qmlRegisterUncreatableType<ActiveLayer>( "mm", 1, 0, "ActiveLayer", "" );
+  qmlRegisterUncreatableType<StreamingIntervalType>( "mm", 1, 0, "StreamingIntervalType", "StreamingIntervalType Enum" );
+  qmlRegisterUncreatableType<RegistrationError>( "mm", 1, 0, "RegistrationError", "RegistrationError Enum" );
+  qmlRegisterType<PositionDirection>( "mm", 1, 0, "PositionDirection" );
+  qmlRegisterType<Compass>( "mm", 1, 0, "Compass" );
+  qmlRegisterType<QrCodeDecoder>( "mm", 1, 0, "QrCodeDecoder" );
+  qmlRegisterType<ProjectsModel>( "mm", 1, 0, "ProjectsModel" );
+  qmlRegisterType<ProjectsProxyModel>( "mm", 1, 0, "ProjectsProxyModel" );
+  qmlRegisterType<AttributePreviewController>( "mm", 1, 0, "AttributePreviewController" );
+  qmlRegisterType<WorkspacesModel>( "mm", 1, 0, "WorkspacesModel" );
+  qmlRegisterType<WorkspacesProxyModel>( "mm", 1, 0, "WorkspacesProxyModel" );
+  qmlRegisterType<MerginInvitation>( "mm", 1, 0, "MerginInvitation" );
+  qmlRegisterType<InvitationsModel>( "mm", 1, 0, "InvitationsModel" );
+  qmlRegisterType<InvitationsProxyModel>( "mm", 1, 0, "InvitationsProxyModel" );
+  qmlRegisterType<ChangelogModel>( "mm", 1, 0, "ChangelogModel" );
+  qmlRegisterUncreatableType<AttributePreviewModel>( "mm", 1, 0, "AttributePreviewModel", "" );
+  qmlRegisterUncreatableMetaObject( ProjectStatus::staticMetaObject, "mm", 1, 0, "ProjectStatus", "ProjectStatus Enum" );
+  qRegisterMetaType< FeatureLayerPair >( "FeatureLayerPair" );
+  qRegisterMetaType< FeatureLayerPair * >( "FeatureLayerPair*" );
+  qRegisterMetaType< AttributeController * >( "AttributeController*" );
+  qmlRegisterUncreatableType<NotificationType>( "mm", 1, 0, "NotificationType", "NotificationType Enum" );
+
+  qRegisterMetaType< QList<QgsMapLayer *> >( "QList<QgsMapLayer*>" );
+  qRegisterMetaType< QgsAttributes > ( "QgsAttributes" );
+  qRegisterMetaType< QgsCoordinateReferenceSystem >( "QgsCoordinateReferenceSystem" );
+  qRegisterMetaType< QgsCoordinateTransformContext >( "QgsCoordinateTransformContext" );
+  qRegisterMetaType< QgsFeature > ( "QgsFeature" );
+  qRegisterMetaType< QgsFeatureId > ( "QgsFeatureId" );
+  qRegisterMetaType< QgsPoint >( "QgsPoint" );
+  qRegisterMetaType< QgsLayerTreeNode * >( "QgsLayerTreeNode*" );
+  qRegisterMetaType< QgsPointXY >( "QgsPointXY" );
+  qRegisterMetaType< QgsRelation >( "QgsRelation" );
+  qRegisterMetaType< QgsPolymorphicRelation >( "QgsPolymorphicRelation" );
+  qRegisterMetaType< Qgis::SystemOfMeasurement >( "Qgis::SystemOfMeasurement" );
+  qRegisterMetaType< Qgis::DistanceUnit >( "Qgis::DistanceUnit" );
+  qRegisterMetaType< QgsCoordinateFormatter::FormatFlags >( "QgsCoordinateFormatter::FormatFlags" );
+  qRegisterMetaType< QgsCoordinateFormatter::Format >( "QgsCoordinateFormatter::Format" );
+  qRegisterMetaType< QVariant::Type >( "QVariant::Type" );
+  qRegisterMetaType< QgsVertexId >( "QgsVertexId" );
+  qmlRegisterAnonymousType<QAbstractItemModel>( "mm", 1 );
+
+  qRegisterMetaType< Vertex >( "Vertex" );
+
+  qmlRegisterUncreatableType< FormItem >( "mm", 1, 0, "FormItem", "Only enums from FormItem can be used" );
+  qmlRegisterUncreatableType< AttributeFormModel >( "mm", 1, 0, "AttributeFormModel", "Created by AttributeController" );
+  qmlRegisterUncreatableType< AttributeFormProxyModel >( "mm", 1, 0, "AttributeFormProxyModel", "Created by AttributeController" );
+  qmlRegisterUncreatableType< AttributeTabModel >( "mm", 1, 0, "AttributeTabModel", "Created by AttributeController" );
+  qmlRegisterUncreatableType< AttributeTabProxyModel >( "mm", 1, 0, "AttributeTabProxyModel", "Created by AttributeController" );
+  qmlRegisterUncreatableType< FieldValidator >( "mm", 1, 0, "FieldValidator", "Only enums from FieldValidator can be used" );
+  qmlRegisterType< AttributeController >( "mm", 1, 0, "AttributeController" );
+  qmlRegisterType< RememberAttributesController >( "mm", 1, 0, "RememberAttributesController" );
+  qmlRegisterType< IdentifyKit >( "mm", 1, 0, "IdentifyKit" );
+  qmlRegisterType< PositionKit >( "mm", 1, 0, "PositionKit" );
+  qmlRegisterType< MapPosition >( "mm", 1, 0, "MapPosition" );
+  qmlRegisterType< ScaleBarKit >( "mm", 1, 0, "ScaleBarKit" );
+  qmlRegisterType< SnapUtils >( "mm", 1, 0, "SnapUtils" );
+  qmlRegisterType< LayerTreeModel >( "mm", 1, 0, "LayerTreeModel" );
+  qmlRegisterType< LayerTreeSortFilterModel >( "mm", 1, 0, "LayerTreeSortFilterModel" );
+  qmlRegisterType< LayerTreeFlatModel >( "mm", 1, 0, "LayerTreeFlatModel" );
+  qmlRegisterType< LayerTreeFlatSortFilterModel >( "mm", 1, 0, "LayerTreeFlatSortFilterModel" );
+  qmlRegisterType< LayerDetailData >( "mm", 1, 0, "LayerDetailData" );
+  qmlRegisterType< MapThemesModel >( "mm", 1, 0, "MapThemesModel" );
+  qmlRegisterType< GuidelineController >( "mm", 1, 0, "GuidelineController" );
+  qmlRegisterType< FeaturesModel >( "mm", 1, 0, "FeaturesModel" );
+  qmlRegisterType< StaticFeaturesModel >( "mm", 1, 0, "StaticFeaturesModel" );
+  qmlRegisterType< LayerFeaturesModel >( "mm", 1, 0, "LayerFeaturesModel" );
+  qmlRegisterType< BluetoothDiscoveryModel >( "mm", 1, 0, "BluetoothDiscoveryModel" );
+  qmlRegisterType< PositionTrackingManager >( "mm", 1, 0, "PositionTrackingManager" );
+  qmlRegisterType< PositionTrackingHighlight >( "mm", 1, 0, "PositionTrackingHighlight" );
+  qmlRegisterType< MultiEditManager >( "mm", 1, 0, "MultiEditManager" );
+  qmlRegisterType< MapSketchingController >( "mm", 1, 0, "MapSketchingController" );
+
+  qmlRegisterUncreatableType< QgsUnitTypes >( "qgs", 1, 0, "QgsUnitTypes", "Only enums from QgsUnitTypes can be used" );
+  qmlRegisterType< QgsVectorLayer >( "qgs", 1, 0, "VectorLayer" );
+  qmlRegisterType< QgsProject >( "qgs", 1, 0, "Project" );
+
+  qmlRegisterType< InputMapCanvasMap >( "mm", 1, 0, "MapCanvasMap" );
+  qmlRegisterType< InputMapSettings >( "mm", 1, 0, "MapSettings" );
+  qmlRegisterType< InputMapTransform >( "mm", 1, 0, "MapTransform" );
+
+  // map tools
+  qmlRegisterUncreatableType< AbstractMapTool >( "mm", 1, 0, "AbstractMapTool", "Instantiate one of child map tools instead" );
+  qmlRegisterType< RecordingMapTool >( "mm", 1, 0, "RecordingMapTool" );
+  qmlRegisterType< SplittingMapTool >( "mm", 1, 0, "SplittingMapTool" );
+  qmlRegisterType< MeasurementMapTool >( "mm", 1, 0, "MeasurementMapTool" );
+
+  // layers model
+  qmlRegisterType<RecordingLayersProxyModel>( "mm", 1, 0, "RecordingLayersProxyModel" );
+  qmlRegisterType<LayersModel>( "mm", 1, 0, "LayersModel" );
+
+  QMetaType::registerConverter( &MixedAttributeValue::toString );
+}
+
+void addQmlImportPath( QQmlEngine &engine )
+{
+  // QML resources
+  engine.addImportPath( ":/com.merginmaps/imports:" );
+
+  // This adds a runtime qml directory containing Input plugin
+  // when Input is installed (e.g. Android/Win32)
+  engine.addImportPath( QgsApplication::qmlImportPath() );
+  qDebug() << "adding QML import Path: " << QgsApplication::qmlImportPath();
+
+#ifdef QML_BUILD_IMPORT_DIR
+  // Adds a runtime qml directory containing Input plugin
+  // if we are using the developer mode (not installed Input)
+  // e.g. Linux/MacOS
+  QString qmlBuildImportPath( STR( QML_BUILD_IMPORT_DIR ) );
+  engine.addImportPath( qmlBuildImportPath );
+  qDebug() << "adding QML import Path: " << qmlBuildImportPath;
+#endif
+
+#ifdef Q_OS_WIN
+  // On windows the import paths are wrong and expect path: app-dir\Qt6\qml
+  engine.addImportPath( QCoreApplication::applicationDirPath() + "/qml" );
+#endif
+
+#ifdef Q_OS_IOS
+  // REQUIRED FOR IOS - to load Input/*.qml files defined in qmldir
+  engine.addImportPath( "qrc:///" );
+  qDebug() << "adding QML import Path: " << "qrc:///";
+#endif
+}
+
+int main( int argc, char *argv[] )
+{
+  QgsApplication app( argc, argv, true );
+
+  const QString version = CoreUtils::appVersion();
+  // Set up the QSettings environment must be done after qapp is created
+  QCoreApplication::setOrganizationName( "Lutra Consulting" );
+  QCoreApplication::setOrganizationDomain( "lutraconsulting.co.uk" );
+  QCoreApplication::setApplicationName( "Input" ); // used by QSettings
+  QCoreApplication::setApplicationVersion( version );
+
+
+#ifdef ANDROID
+  // Fix rendering problems on some Android devices - see https://bugreports.qt.io/browse/QTBUG-134089
+  QCoreApplication::setAttribute( Qt::AA_DisableShaderDiskCache );
+#endif
+
+
+#ifdef MM_TEST
+  InputTests tests;
+  tests.parseArgs( argc, argv );
+#endif
+  qDebug() << "Mergin Maps App" << version << InputUtils::appPlatform() << "(" << CoreUtils::appVersionCode() << ")";
+  qDebug() << "Built with QGIS " << VERSION_INT << " and QT " << qVersion();
+  qDebug() << "Device uuid " << CoreUtils::deviceUuid();
+
+  // Set/Get enviroment
+  QString dataDir = getDataDir();
+  QString projectDir = dataDir + "/projects";
+
+#ifdef MM_TEST
+  if ( tests.testingRequested() )
+  {
+    projectDir = tests.initTestingDir();
+  }
+#endif
+
+  QDir projectsDirectory( projectDir );
+  if ( !projectsDirectory.exists() )
+  {
+    projectsDirectory.mkpath( projectDir );
+  }
+
+  CoreUtils::setLogFilename( projectDir + "/.logs" );
+  CoreUtils::log( QStringLiteral( "AppState" ), QStringLiteral( "Application has started: %1 (%2)" ).arg( version ).arg( CoreUtils::appVersionCode() ) );
+
+  setEnvironmentQgisPrefixPath();
+
+  // Initialize translations
+  QLocale locale;
+
+  QTranslator inputTranslator;
+  if ( inputTranslator.load( locale, "input", "_", ":/" ) )
+  {
+    app.installTranslator( &inputTranslator );
+    qDebug() <<  "Loaded input translation" << app.locale() << "for" << locale;
+  }
+  else
+  {
+    qDebug() <<  "Error in loading input translation for " << locale;
+  }
+
+  QString appBundleDir;
+#ifdef ANDROID
+  appBundleDir = dataDir + "/qgis-data";
+#endif
+#ifdef Q_OS_IOS
+  appBundleDir = QCoreApplication::applicationDirPath() + "/qgis-data";
+#endif
+#ifdef Q_OS_WIN32
+  appBundleDir = QCoreApplication::applicationDirPath() + "\\qgis-data";
+#endif
+#ifdef Q_OS_LINUX
+  appBundleDir = dataDir;
+#endif
+#ifdef Q_OS_MACOS
+  appBundleDir = dataDir;
+#endif
+  InputProjUtils inputProjUtils;
+  inputProjUtils.initProjLib( appBundleDir, dataDir, projectDir );
+
+  init_pg( dataDir );
+
+  init_qgis( appBundleDir );
+
+#ifdef DESKTOP_OS
+  if ( argc > 0 )
+  {
+    for ( int i = 1; i < argc; ++i )
+    {
+      QString arg( argv[i] );
+      if ( arg.compare( "--generate_QGIS_formats" ) == 0 )
+      {
+        InputUtils::updateQgisFormats( QgsProviderRegistry::instance()->pluginList().toUtf8() );
+        return 0;
+      }
+    }
+  }
+#endif
+
+#ifdef ANDROID
+  // See issue #3431 -> disable Android accessibility features to prevent ANRs
+  qputenv( "QT_ANDROID_DISABLE_ACCESSIBILITY", "1" );
+#endif
+#ifdef Q_OS_IOS
+  // See issue #3561 -> WFS layers causing stress on iOS
+  qputenv( "QGIS_USE_SHARED_MEMORY_KEEP_ALIVE", "1" );
+  qDebug() <<  "Setting QGIS_USE_SHARED_MEMORY_KEEP_ALIVE environment variable TRUE";
+#endif
+
+  // there seem to be issues with HTTP/2 server support (QTBUG-111417)
+  // so let's stick to HTTP/1 for the time being (Qt5 has HTTP/2 disabled by default)
+  QgsNetworkAccessManager::instance()->setRequestPreprocessor( []( QNetworkRequest * r )
+  {
+    r->setAttribute( QNetworkRequest::Http2AllowedAttribute, false );
+  } );
+
+  // we define engine sooner as some classes are needed for creation of others, but QML engine is responsible for
+  // creation of those required classes
+  QQmlEngine engine;
+  addQmlImportPath( engine );
+  // AppSettings has to be initialized after QGIS app init (because of correct reading/writing QSettings).
+  AppSettings *as = engine.singletonInstance<AppSettings *>( "MMInput", "AppSettings" );
+
+  // Create Input classes
+  GeodiffUtils::init();
+  AndroidUtils androidUtils;
+  IosUtils iosUtils;
+  LocalProjectsManager localProjectsManager( projectDir );
+  std::unique_ptr<MerginApi> ma =  std::unique_ptr<MerginApi>( new MerginApi( localProjectsManager ) );
+  InputUtils iu( &androidUtils );
+  MerginProjectStatusModel mpsm( localProjectsManager );
+  InputHelp help( ma.get() );
+  ProjectWizard pw( projectDir );
+  NotificationModel notificationModel;
+
+  ActiveLayer al;
+  ActiveProject activeProject( *as, al, localProjectsManager );
+  std::unique_ptr<VariablesManager> vm( new VariablesManager( ma.get() ) );
+  vm->registerInputExpressionFunctions();
+
+  SynchronizationManager syncManager( ma.get() );
+
+  LayerTreeModelPixmapProvider *layerTreeModelPixmapProvider( new LayerTreeModelPixmapProvider );
+  LayerTreeFlatModelPixmapProvider *layerTreeFlatModelPixmapProvider( new LayerTreeFlatModelPixmapProvider );
+  LayerDetailLegendImageProvider *layerDetailLegendImageProvider( new LayerDetailLegendImageProvider );
+
+  QgsAuthManager *authManager = QgsApplication::authManager();
+  // remove existing authentication database when opening the app
+  authManager->removeAllAuthenticationConfigs();
+  // set up the master password for authentication database retrieval
+  authManager->setPasswordHelperEnabled( false );
+  authManager->setMasterPassword( QStringLiteral( "merginMaps" ), true );
+
+
+  // build position kit, save active provider to QSettings and load previously active provider
+  PositionKit *pk = engine.singletonInstance<PositionKit *>( "MMInput", "PositionKit" );
+  QObject::connect( pk, &PositionKit::positionProviderChanged, as, [as]( AbstractPositionProvider * provider )
+  {
+    as->setActivePositionProviderId( provider ? provider->id() : QLatin1String() );
+  } );
+
+  // Lambda context object can be used in all lambda functions defined here,
+  // it secures lambdas, so that they are destroyed when this object is destroyed to avoid crashes.
+  QObject lambdaContext;
+
+  // delay position provider construction on app start for smoother startup
+  // it is mostly for trimble provider as it opens Trimble Mobile Manager while constructing provider
+  QObject::connect( &activeProject, &ActiveProject::projectReloaded, &lambdaContext, [pk, as]( QgsProject * project )
+  {
+    Q_UNUSED( project );
+    pk->setPositionProvider( pk->constructActiveProvider( as ) );
+    pk->setAppSettings( as );
+  }, Qt::SingleShotConnection );
+
+  QObject::connect( &activeProject, &ActiveProject::projectReloaded, &lambdaContext, [&pk]( QgsProject * project )
+  {
+    // read and set new vertical CRS definition
+    bool crsExists = false;
+    const QString crsWktDef = project->readEntry( QStringLiteral( "Mergin" ), QStringLiteral( "TargetVerticalCRS" ), QString(), &crsExists );
+    const QgsCoordinateReferenceSystem crs = QgsCoordinateReferenceSystem::fromWkt( crsWktDef );
+    pk->setVerticalCrs( crs );
+
+    // read and set new elevation transformation behavior
+    bool valueRead = false;
+    const bool elevationTransformationEnabled = project->readBoolEntry( QStringLiteral( "Mergin" ), QStringLiteral( "ElevationTransformationEnabled" ), false, &valueRead );
+    pk->setElevationTransformationEnabled( elevationTransformationEnabled );
+
+    pk->refreshPositionTransformer( project->transformContext() );
+  } );
+
+  // the automatic sync request on cold start will fail on MerginApiStatus not being initialized yet, so we call it again
+  // after server ping is done
+  if ( activeProject.autosyncController() )
+  {
+    QObject::connect( ma.get(), &MerginApi::pingMerginFinished, &lambdaContext, [&activeProject]
+    {
+      activeProject.requestSync( SyncOptions::AutomaticRequest );
+    }, Qt::SingleShotConnection );
+  }
+
+  QObject::connect( &app, &QGuiApplication::applicationStateChanged, &lambdaContext, []( Qt::ApplicationState state )
+  {
+    QString msg;
+
+    // Instatiate QDebug with QString to redirect output to string
+    // It is used to convert enum to string
+    QDebug logHelper( &msg );
+
+    logHelper << QStringLiteral( "Application changed state to:" ) << state;
+    CoreUtils::log( QStringLiteral( "AppState" ), msg );
+  } );
+
+  QObject::connect( &app, &QCoreApplication::aboutToQuit, &lambdaContext, []()
+  {
+    CoreUtils::log( QStringLiteral( "AppState" ), QStringLiteral( "Application has quit" ) );
+  } );
+
+  QObject::connect( &help, &InputHelp::submitReportSuccessful, &lambdaContext, [&notificationModel]()
+  {
+    notificationModel.addSuccess( QObject::tr( "Report submitted. Please contact the support" ) );
+  } );
+
+  QObject::connect( &help, &InputHelp::submitReportFailed, &lambdaContext, [&notificationModel]()
+  {
+    notificationModel.addError( QObject::tr( "Failed to submit report. Please check your internet connection." ) );
+  } );
+
+  QObject::connect( &pw, &ProjectWizard::notifySuccess, &lambdaContext, [&notificationModel]( const QString & message )
+  {
+    notificationModel.addSuccess( message );
+  } );
+
+  QObject::connect( &iosUtils, &IosUtils::notifyError, &lambdaContext, [&notificationModel]( const QString & message )
+  {
+    notificationModel.addError( message );
+  } );
+
+  QObject::connect( &androidUtils, &AndroidUtils::notifyInfo, &lambdaContext, [&notificationModel]( const QString & message )
+  {
+    notificationModel.addInfo( message );
+  } );
+
+  QObject::connect( &androidUtils, &AndroidUtils::notifyError, &lambdaContext, [&notificationModel]( const QString & message )
+  {
+    notificationModel.addError( message );
+  } );
+
+  QObject::connect( &activeProject, &ActiveProject::syncActiveProject, &syncManager, [&syncManager]( const LocalProject & project, const SyncOptions::RequestOrigin requestOrigin )
+  {
+    syncManager.syncProject( project, SyncOptions::Authorized, SyncOptions::Retry, requestOrigin );
+  } );
+
+  QObject::connect( &activeProject, &ActiveProject::projectReloaded, &lambdaContext, [merginApi = ma.get(), &activeProject]()
+  {
+    merginApi->reloadProjectRole( activeProject.projectFullName() );
+  } );
+
+  QObject::connect( ma.get(), &MerginApi::authChanged, &lambdaContext, [merginApi = ma.get(), &activeProject]()
+  {
+    if ( activeProject.isProjectLoaded() )
+    {
+      // if you are logged in or if you just logged out
+      if ( merginApi->userAuth()->hasValidToken() || !merginApi->userAuth()->hasAuthData() )
+      {
+        merginApi->reloadProjectRole( activeProject.projectFullName() );
+      }
+    }
+  } );
+
+  QObject::connect( ma.get(), &MerginApi::projectRoleUpdated, &activeProject, [&activeProject]( const QString & projectFullName, const QString & role )
+  {
+    if ( projectFullName == activeProject.projectFullName() )
+    {
+      activeProject.setProjectRole( role );
+    }
+  } );
+
+  QObject::connect( ma.get(), &MerginApi::notifyInfo, &lambdaContext, [&notificationModel]( const QString & message )
+  {
+    notificationModel.addInfo( message );
+  } );
+
+  QObject::connect( ma.get(), &MerginApi::notifySuccess, &lambdaContext, [&notificationModel]( const QString & message )
+  {
+    notificationModel.addSuccess( message );
+  } );
+
+  QObject::connect( ma.get(), &MerginApi::notifyError, &lambdaContext, [&notificationModel]( const QString & message )
+  {
+    notificationModel.addError( message );
+  } );
+  // Direct connections
+  QObject::connect( &app, &QGuiApplication::applicationStateChanged, pk, &PositionKit::appStateChanged );
+  QObject::connect( &app, &QGuiApplication::applicationStateChanged, &activeProject, &ActiveProject::appStateChanged );
+  QObject::connect( &pw, &ProjectWizard::projectCreated, &localProjectsManager, &LocalProjectsManager::addLocalProject );
+  QObject::connect( &activeProject, &ActiveProject::projectReloaded, vm.get(), &VariablesManager::merginProjectChanged );
+  QObject::connect( &activeProject, &ActiveProject::projectWillBeReloaded, &inputProjUtils, &InputProjUtils::resetHandlers );
+  QObject::connect( &syncManager, &SynchronizationManager::syncFinished, &activeProject, [&activeProject]( const QString & projectFullName, bool successfully, int version, bool reloadNeeded )
+  {
+    Q_UNUSED( successfully );
+    Q_UNUSED( version );
+    if ( reloadNeeded && activeProject.projectFullName() == projectFullName )
+    {
+      activeProject.reloadProject( activeProject.qgsProject()->homePath() );
+    }
+  } );
+  QObject::connect( QgsApplication::messageLog(),
+                    static_cast<void ( QgsMessageLog::* )( const QString &message, const QString &tag, Qgis::MessageLevel level )>( &QgsMessageLog::messageReceived ),
+                    &iu,
+                    &InputUtils::onQgsLogMessageReceived );
+
+  QFile projectLoadingFile( ActiveProject::LOADING_FLAG_FILE_PATH );
+  if ( projectLoadingFile.exists() )
+  {
+    // Cleaning default project due to a project loading has crashed during the last run.
+    as->setDefaultProject( QString() );
+    projectLoadingFile.remove();
+    CoreUtils::log( QStringLiteral( "Loading project error" ), QStringLiteral( "Application has been unexpectedly finished during the last run." ) );
+  }
+
+#ifdef MM_TEST
+  if ( tests.testingRequested() )
+  {
+    tests.initTestDeclarative();
+    tests.init( ma.get(), &iu, vm.get(), pk, as );
+    return tests.runTest();
+  }
+#endif
+
+  // we ship our fonts because they do not need to be installed on the target platform
+  QStringList fonts;
+  fonts << ":/Inter-Regular.ttf"
+        << ":/Inter-SemiBold.ttf";
+
+  for ( QString font : fonts )
+  {
+    if ( QFontDatabase::addApplicationFont( font ) == -1 )
+      qDebug() << "!! Failed to load font" << font;
+    else
+      qDebug() << "Loaded font" << font;
+  }
+  app.setFont( QFont( "Inter" ) );
+
+  QQuickStyle::setStyle( "Basic" );
+
+  initDeclarative();
+  // QGIS environment variables to set
+  // OGR_SQLITE_JOURNAL is set to DELETE to avoid working with WAL files
+  // and properly close connection after writting changes to gpkg.
+  qputenv( "OGR_SQLITE_JOURNAL", "DELETE" );
+
+
+  // Register to QQmlEngine
+  engine.rootContext()->setContextProperty( "__notificationModel", &notificationModel );
+  engine.rootContext()->setContextProperty( "__androidUtils", &androidUtils );
+  engine.rootContext()->setContextProperty( "__iosUtils", &iosUtils );
+  engine.rootContext()->setContextProperty( "__inputUtils", &iu );
+  engine.rootContext()->setContextProperty( "__inputProjUtils", &inputProjUtils );
+  engine.rootContext()->setContextProperty( "__inputHelp", &help );
+  engine.rootContext()->setContextProperty( "__activeProject", &activeProject );
+  engine.rootContext()->setContextProperty( "__syncManager", &syncManager );
+  engine.rootContext()->setContextProperty( "__merginApi", ma.get() );
+  engine.rootContext()->setContextProperty( "__merginProjectStatusModel", &mpsm );
+  engine.rootContext()->setContextProperty( "__activeLayer", &al );
+  engine.rootContext()->setContextProperty( "__projectWizard", &pw );
+  engine.rootContext()->setContextProperty( "__localProjectsManager", &localProjectsManager );
+  engine.rootContext()->setContextProperty( "__variablesManager", vm.get() );
+
+  // add image provider to pass QIcons/QImages from C++ to QML
+  engine.rootContext()->setContextProperty( "__layerTreeModelPixmapProvider", layerTreeModelPixmapProvider );
+  engine.addImageProvider( QLatin1String( "LayerTreeModelPixmapProvider" ), layerTreeModelPixmapProvider );
+  engine.rootContext()->setContextProperty( "__layerTreeFlatModelPixmapProvider", layerTreeFlatModelPixmapProvider );
+  engine.addImageProvider( QLatin1String( "LayerTreeFlatModelPixmapProvider" ), layerTreeFlatModelPixmapProvider );
+  engine.rootContext()->setContextProperty( "__layerDetailLegendImageProvider", layerDetailLegendImageProvider );
+  engine.addImageProvider( QLatin1String( "LayerDetailLegendImageProvider" ), layerDetailLegendImageProvider );
+
+  // Even though enabling QT's HighDPI scaling removes the need to multiply pixel values with dp,
+  // there are screens that need a "little help", because system DPR has different value than the
+  // one we calculated. In these scenarios we use a ratio between real (our) DPR and DPR reported by QT.
+  // Use `value * __dp` for each pixel value in QML
+  qreal dp = InputUtils::calculateDpRatio();
+  engine.rootContext()->setContextProperty( "__dp", dp );
+
+  MMStyle *style = new MMStyle( &engine, dp );
+  engine.rootContext()->setContextProperty( "__style", style );
+
+  // App window settings
+  // - Mobile app is always maximized - size and position is ignored
+  // - Desktop app is windowed and the default values might be overridden by the last saved position
+  int appWindowX = style->DEFAULT_WINDOW_X;
+  int appWindowY = style->DEFAULT_WINDOW_Y;
+  int appWindowWidth = style->DEFAULT_WINDOW_WIDTH;
+  int appWindowHeight = style->DEFAULT_WINDOW_HEIGHT;
+
+  QWindow::Visibility appWindowVisibility = QWindow::Maximized;
+
+#ifdef DESKTOP_OS
+  appWindowVisibility = QWindow::Windowed;
+
+  QVariantList windowCachedPosition = as->windowPosition();
+  if ( !windowCachedPosition.isEmpty() )
+  {
+    appWindowX = windowCachedPosition.at( 0 ).toInt();
+    appWindowY = windowCachedPosition.at( 1 ).toInt();
+    appWindowWidth = windowCachedPosition.at( 2 ).toInt();
+    appWindowHeight = windowCachedPosition.at( 3 ).toInt();
+  }
+#endif
+
+  engine.rootContext()->setContextProperty( "__appwindowx", appWindowX );
+  engine.rootContext()->setContextProperty( "__appwindowy", appWindowY );
+  engine.rootContext()->setContextProperty( "__appwindowwidth", appWindowWidth );
+  engine.rootContext()->setContextProperty( "__appwindowheight", appWindowHeight );
+  engine.rootContext()->setContextProperty( "__appwindowvisibility", appWindowVisibility );
+
+  engine.rootContext()->setContextProperty( "__version", version );
+
+
+  // Set simulated position for desktop builds
+#ifdef DESKTOP_OS
+  bool use_simulated_position = true;
+#else
+  bool use_simulated_position = false;
+#endif
+  engine.rootContext()->setContextProperty( "__use_simulated_position", use_simulated_position );
+
+  // show "new look and feel" welcome dialog on start?
+  QString lastAppVersion = as->appVersion();
+  bool showWelcomeToNewDesignDialog = false;
+  if ( !lastAppVersion.isEmpty() )  // this is not a first run?
+  {
+    int dotPos = lastAppVersion.indexOf( '.' );
+    if ( dotPos >= 0 && lastAppVersion.left( dotPos ).toInt() < 2024 )
+    {
+      // only show if previously we were on 2.x version, and now we're on 2024.x.y with the new design
+      showWelcomeToNewDesignDialog = true;
+    }
+  }
+  engine.rootContext()->setContextProperty( "__showWelcomeToNewDesignDialog", showWelcomeToNewDesignDialog );
+
+  QQmlComponent component( &engine, QUrl( "qrc:/com.merginmaps/imports/MMInput/main.qml" ) );
+  QObject *object = component.create();
+
+  if ( !component.errors().isEmpty() )
+  {
+    qDebug( "%s", QgsApplication::showSettings().toLocal8Bit().data() );
+
+    qDebug() << "****************************************";
+    qDebug() << "*****        QML errors:           *****";
+    qDebug() << "****************************************";
+    for ( const QQmlError &error : component.errors() )
+    {
+      qDebug() << "  " << error;
+    }
+    qDebug() << "****************************************";
+    qDebug() << "****************************************";
+  }
+
+  if ( object == nullptr )
+  {
+    qDebug() << "FATAL ERROR: unable to create main.qml";
+    return EXIT_FAILURE;
+  }
+
+  // this fixes the error dump from C++ defined QML components, when quiting application
+  QObject::connect( &app, &QCoreApplication::aboutToQuit, object, [&]
+  {
+    object->deleteLater();
+    engine.clearComponentCache();
+  } );
+
+#ifdef Q_OS_IOS
+  QString logoUrl = "qrc:logo.png";
+#else
+  QString logoUrl = ":/logo.png";
+#endif
+  if ( QQuickWindow *quickWindow = qobject_cast<QQuickWindow *>( object ) )
+  {
+    quickWindow->setIcon( QIcon( logoUrl ) );
+
+#if defined( ANDROID ) || defined( Q_OS_IOS )
+    // Qt 6.9+ provides QWindow::safeAreaMargins() natively for both Android and iOS.
+
+    auto applyMargins = [style, quickWindow]()
+    {
+      const QMargins m = quickWindow->safeAreaMargins();
+      style->setSafeAreaTop( m.top() );
+      style->setSafeAreaRight( m.right() );
+      style->setSafeAreaBottom( m.bottom() );
+      style->setSafeAreaLeft( m.left() );
+    };
+
+    QObject::connect( quickWindow, &QWindow::safeAreaMarginsChanged, &lambdaContext, applyMargins );
+    QTimer::singleShot( 10, &lambdaContext, applyMargins );
+#endif
+  }
+
+#ifdef DESKTOP_OS
+  QCommandLineParser parser;
+  parser.addVersionOption();
+  parser.process( app );
+#endif
+
+  // Add some data for debugging
+  qDebug() << iu.dumpScreenInfo();
+  qDebug() << "data directory: " << dataDir;
+  qDebug() <<  "All up and running";
+
+#ifdef ANDROID
+  androidUtils.hideSplashScreen();
+#endif
+
+  // save app version to settings
+  as->setAppVersion( version );
+
+  // Photos bigger that 512 MB (when uncompressed) will not load
+  QImageReader::setAllocationLimit( 512 );
+
+  int ret = EXIT_FAILURE;
+  try
+  {
+    ret = app.exec();
+  }
+  catch ( QgsException &e )
+  {
+    CoreUtils::log( "Main", QStringLiteral( "Caught unhandled QgsException %1" ).arg( e.what() ) );
+  }
+  catch ( std::exception &e )
+  {
+    CoreUtils::log( "Main", QStringLiteral( "Caught unhandled std::exception %1" ).arg( e.what() ) );
+  }
+  catch ( ... )
+  {
+    CoreUtils::log( "Main", QStringLiteral( "Caught unhandled unknown exception" ) );
+  }
+  return ret;
+}
