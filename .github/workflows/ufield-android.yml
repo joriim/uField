@@ -1,0 +1,210 @@
+# μField Android build (roadmap phase 1).
+#
+# Builds the app for arm64-v8a on Linux, following upstream's Linux-host
+# instructions (INSTALL.md §4.1) instead of upstream's android.yml, which
+# needs Mergin Maps' secrets and binary cache. Differences from upstream:
+#   - no Mergin server API key, no Trimble provider (both default off)
+#   - vcpkg binary cache in this repository's GitHub Packages NuGet feed,
+#     written with GITHUB_TOKEN; each built port is uploaded as soon as it
+#     is done, so a first build that hits the job time limit continues
+#     where it stopped on the next run
+#   - signed with UFIELD_ANDROID_KEYSTORE_* secrets if set, otherwise with a
+#     throwaway key generated in the job (test builds only; an APK signed
+#     with another key cannot be installed over it)
+name: μField Android
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - 'core/**'
+      - 'cmake/**'
+      - 'cmake_templates/**'
+      - 'CMakeLists.txt'
+      - 'vcpkg/**'
+      - 'vcpkg.json'
+      - 'VCPKG_BASELINE'
+      - '.github/workflows/ufield-android.yml'
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'core/**'
+      - 'cmake/**'
+      - 'cmake_templates/**'
+      - 'CMakeLists.txt'
+      - 'vcpkg/**'
+      - 'vcpkg.json'
+      - 'VCPKG_BASELINE'
+      - '.github/workflows/ufield-android.yml'
+
+concurrency:
+  group: ufield-android-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  # Versions as in upstream's android.yml (2026.4.1)
+  CMAKE_VERSION: '4.3.2'
+  JDK_VERSION: '17'
+  SDK_PLATFORM: 'android-36'
+  SDK_BUILD_TOOLS: '36.0.0'
+  NDK_VERSION: '27.2.12479018' # r27c
+  ANDROID_ABI: arm64-v8a
+  VCPKG_TARGET_TRIPLET: arm64-android
+  VCPKG_HOST_TRIPLET: x64-linux
+  VCPKG_ROOT: ${{ github.workspace }}/vcpkg
+  VCPKG_BINARY_SOURCES: 'clear;nuget,GitHub,readwrite'
+  VCPKG_NUGET_REPOSITORY: https://github.com/${{ github.repository }}
+  NUGET_FEED: https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
+
+jobs:
+  apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 355
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          path: src
+
+      - name: Free disk space
+        run: |
+          df -h /
+          # Keep the Android SDK; remove toolchains this build does not use.
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift \
+            /usr/local/share/boost /opt/hostedtoolcache/CodeQL /usr/local/share/powershell \
+            /usr/local/lib/node_modules /opt/microsoft /opt/google
+          sudo docker image prune --all --force > /dev/null || true
+          df -h /
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y \
+            bison flex gperf autopoint autoconf-archive libtool gettext nasm \
+            '^libxcb.*-dev' libx11-xcb-dev libegl1-mesa-dev libglu1-mesa-dev libxrender-dev \
+            libxi-dev libxkbcommon-dev libxkbcommon-x11-dev libxrandr-dev libltdl-dev \
+            libwayland-dev libwayland-egl-backend-dev wayland-protocols mono-complete
+
+      - name: Install CMake and Ninja
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: ${{ env.CMAKE_VERSION }}
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          java-version: ${{ env.JDK_VERSION }}
+          distribution: zulu
+
+      - name: Install Android SDK platform, build tools and NDK
+        run: |
+          SDKMANAGER="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" --install "platforms;${SDK_PLATFORM}" "build-tools;${SDK_BUILD_TOOLS}" \
+            "ndk;${NDK_VERSION}" platform-tools > /dev/null
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
+
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ccache-${{ env.VCPKG_TARGET_TRIPLET }}
+          max-size: 500M
+
+      - name: Install vcpkg at the upstream baseline
+        run: |
+          git clone --quiet https://github.com/microsoft/vcpkg.git "$VCPKG_ROOT"
+          git -C "$VCPKG_ROOT" checkout --quiet "$(cat src/VCPKG_BASELINE)"
+          "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+
+      - name: Set up the NuGet binary cache
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NUGET="$("$VCPKG_ROOT/vcpkg" fetch nuget | grep -E '\.exe$' | tail -n 1)"
+          test -f "$NUGET"
+          mono "$NUGET" sources add -source "$NUGET_FEED" -storepasswordincleartext \
+            -name GitHub -username "${{ github.repository_owner }}" -password "$GH_TOKEN"
+          mono "$NUGET" setapikey "$GH_TOKEN" -source "$NUGET_FEED"
+
+      - name: Signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.UFIELD_ANDROID_KEYSTORE_B64 }}
+          KEYSTORE_ALIAS: ${{ secrets.UFIELD_ANDROID_KEYSTORE_ALIAS }}
+          KEYSTORE_PASS: ${{ secrets.UFIELD_ANDROID_KEYSTORE_PASS }}
+        run: |
+          KS="$RUNNER_TEMP/ufield.keystore"
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$KS"
+            ALIAS="$KEYSTORE_ALIAS"; PASS="$KEYSTORE_PASS"
+            echo "Signed with the UFIELD_ANDROID_KEYSTORE secret." >> "$GITHUB_STEP_SUMMARY"
+          else
+            ALIAS=ufield-ci; PASS="$(openssl rand -hex 16)"
+            keytool -genkeypair -noprompt -keystore "$KS" -alias "$ALIAS" -keyalg RSA -keysize 2048 \
+              -validity 30 -storepass "$PASS" -keypass "$PASS" -dname "CN=uField CI test build"
+            echo "::warning::No UFIELD_ANDROID_KEYSTORE secret: signed with a throwaway key (test build only)."
+            echo "Signed with a throwaway key: uninstall the previous test build before installing this one." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "::add-mask::$PASS"
+          {
+            echo "QT_ANDROID_KEYSTORE_PATH=$KS"
+            echo "QT_ANDROID_KEYSTORE_ALIAS=$ALIAS"
+            echo "QT_ANDROID_KEYSTORE_STORE_PASS=$PASS"
+            echo "QT_ANDROID_KEYSTORE_KEY_PASS=$PASS"
+          } >> "$GITHUB_ENV"
+
+      - name: Version code
+        run: echo "MM_VERSION_CODE=$GITHUB_RUN_NUMBER" >> "$GITHUB_ENV"
+
+      - name: Configure (builds all vcpkg dependencies on a cold cache)
+        run: |
+          cmake \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DANDROID_ABI="$ANDROID_ABI" \
+            -DQT_ANDROID_ABIS="$ANDROID_ABI" \
+            -DANDROID_SDK_ROOT="$ANDROID_SDK_ROOT" \
+            -DVCPKG_HOST_TRIPLET="$VCPKG_HOST_TRIPLET" \
+            -DVCPKG_TARGET_TRIPLET="$VCPKG_TARGET_TRIPLET" \
+            -DVCPKG_INSTALL_OPTIONS="--allow-unsupported;--clean-after-build" \
+            -DCMAKE_TOOLCHAIN_FILE="$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake" \
+            -DUSE_MM_SERVER_API_KEY=FALSE \
+            -DWITH_TRIMBLE_PROVIDERS=FALSE \
+            -DUSE_KEYCHAIN=FALSE \
+            -DQT_ANDROID_SIGN_APK=Yes \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -GNinja \
+            -S src \
+            -B build
+          df -h /
+
+      - name: Build APK
+        run: |
+          ninja -C build apk
+          APK="$(find build -name '*-release-signed.apk' | head -n 1)"
+          test -n "$APK"
+          mv "$APK" "ufield-${MM_VERSION_CODE}-${ANDROID_ABI}.apk"
+          ls -la ufield-*.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v6
+        with:
+          name: ufield-${{ env.MM_VERSION_CODE }}-${{ env.ANDROID_ABI }}-apk
+          path: ufield-*.apk
+          retention-days: 14
+
+      - name: Upload vcpkg logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: vcpkg-logs-${{ github.run_number }}
+          path: |
+            vcpkg/buildtrees/**/*.log
+            build/vcpkg-manifest-install.log
+          if-no-files-found: ignore
+          retention-days: 7
