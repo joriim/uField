@@ -1,7 +1,7 @@
-# 0008 — Google Drive storage and sync (release 1)
+# 0008 — Google Drive storage and sync (release 1.1)
 
-- Status: proposed, 2026-10-23
-- Relation: implements the Google Drive part of release 1 (ADR 0007) and the `google_drive` StorageProvider in `CLAUDE.md`. Follows ADR 0002 (credentials) and rule 8 (`drive.file` only).
+- Status: proposed, 2026-10-23; **deferred to release 1.1** by ADR 0009 (release 1 has no cloud integration and exports to one file)
+- Relation: implements Google Drive sync for release 1.1 (ADR 0007, ADR 0009) and the `google_drive` StorageProvider in `CLAUDE.md`. Follows ADR 0002 (credentials) and rule 8 (`drive.file` only).
 
 ## Context
 
