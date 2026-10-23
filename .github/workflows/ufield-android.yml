@@ -89,7 +89,8 @@ jobs:
             bison flex gperf autopoint autoconf-archive libtool gettext nasm \
             '^libxcb.*-dev' libx11-xcb-dev libegl1-mesa-dev libglu1-mesa-dev libxrender-dev \
             libxi-dev libxkbcommon-dev libxkbcommon-x11-dev libxrandr-dev libltdl-dev \
-            libwayland-dev libwayland-egl-backend-dev wayland-protocols mono-complete
+            libwayland-dev libwayland-egl-backend-dev wayland-protocols mono-complete \
+            libsm-dev libice-dev  # host Qt (x64-linux qtbase) needs X11 session management (xcb_sm)
 
       - name: Install CMake and Ninja
         uses: lukka/get-cmake@latest
@@ -185,7 +186,8 @@ jobs:
 
       - name: Build APK
         run: |
-          ninja -C build apk
+          set -o pipefail
+          ninja -C build apk 2>&1 | tee build-apk.log
           APK="$(find build -name '*-release-signed.apk' | head -n 1)"
           test -n "$APK"
           mv "$APK" "ufield-${MM_VERSION_CODE}-${ANDROID_ABI}.apk"
@@ -220,6 +222,11 @@ jobs:
           else:
               print('::warning::no vcpkg-manifest-install.log')
           print('failed ports:', failed)
+          if os.path.exists('build-apk.log'):
+              log = open('build-apk.log', errors='replace').read()
+              errs = [l for l in log.splitlines() if re.search(r'error:|error :|FAILED:|BUILD FAILED|Exception', l)]
+              if errs:
+                  annotate('app build', '\n'.join(errs[-40:]))
           shown = 0
           for port in failed or ['*']:
               logs = sorted(glob.glob(f'vcpkg/buildtrees/{port}/*-err.log') + glob.glob(f'vcpkg/buildtrees/{port}/*-out.log'),
