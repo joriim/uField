@@ -46,6 +46,8 @@ def check_tools(doc: dict) -> dict:
         for key in us.FORBIDDEN_TOP_LEVEL:
             if key in schema:
                 fail(f"{where}: top-level '{key}' is not allowed; use x-ufield-rules")
+        if tool.get("x-ufield-release") not in us.RELEASES:
+            fail(f"{where}: x-ufield-release must be one of {list(us.RELEASES)} (docs/adr/0007-staged-releases.md)")
         props = set(schema.get("properties", {}))
         for req in schema.get("required", []):
             if req not in props:
