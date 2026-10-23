@@ -82,6 +82,14 @@ def _inline(node, doc: dict, stack: tuple = ()):
     return out
 
 
+RELEASES = (1, 2, 3)  # docs/adr/0007-staged-releases.md
+
+
+def tool_release(tool: dict) -> int:
+    """The release that ships the tool ("x-ufield-release" on the tool)."""
+    return tool["x-ufield-release"]
+
+
 def export_tool(doc: dict, tool: dict) -> dict:
     """The tool as an MCP / LLM client sees it: $defs inlined, x- keys removed."""
     return {
