@@ -23,6 +23,7 @@ from mcp.server.stdio import stdio_server
 
 from . import __version__
 from .dispatcher import CallContext, Client, ToolDispatcher, ToolError
+from .features import register_features
 from .project import Project, register_notes
 
 INSTRUCTIONS = """\
@@ -56,6 +57,7 @@ def build_server(project: Project, dispatcher: ToolDispatcher | None = None, cli
     if dispatcher is None:
         dispatcher = ToolDispatcher()
         register_notes(dispatcher, project)
+        register_features(dispatcher, project)
 
     tools = [
         types.Tool(
