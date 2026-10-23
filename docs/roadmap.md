@@ -1,8 +1,11 @@
 # Roadmap to GitHub and Google Play — μField
 
-Status: draft, 2026-09-25. Scope follows the MVP in `CLAUDE.md`. Store rules and dates change often; every item marked *(verify)* must be checked against the current Play Console and Google documentation when that phase starts.
+Status: draft, 2026-09-25; release staging added 2026-10-23. Scope follows the MVP in `CLAUDE.md`, which is **release 1** of `docs/adr/0007-staged-releases.md`:
+- **Release 1:** phases 0, 1, 2 and 4, voice-note recording from 6, and the release-1 parts of 7 and 8.
+- **Release 2:** phases 3, 5 and the rest of 6.
+- **Release 3:** a self-hosted phase to be added from ADR 0004/0006. Store rules and dates change often; every item marked *(verify)* must be checked against the current Play Console and Google documentation when that phase starts.
 
-Today the repository holds only design documents: `CLAUDE.md`, the layer registry, the tool schema and two ADRs. There is no app or server code yet.
+State on 2026-10-23: design documents, the tool schema with validator, `ufield-mcp` (local stdio, notes tools) and server scaffolding are on `main`. The Mergin Maps mobile 2026.4.1 import and the μField Android CI workflow are in PR #4, and the first CI build failed while building dependencies (being fixed).
 
 ## Principles
 
