@@ -27,7 +27,7 @@ def server(project):
 async def test_lists_only_implemented_tools_with_standalone_schemas(server):
     async with Client(server) as client:
         tools = {t.name: t for t in (await client.list_tools()).tools}
-    assert set(tools) == {"read_notes", "write_note"}
+    assert set(tools) == {"read_notes", "write_note", "list_layers", "query_features"}
     for tool in tools.values():
         text = json.dumps(tool.input_schema)
         assert "$ref" not in text and "x-ufield" not in text
@@ -77,3 +77,16 @@ def test_cli_refuses_a_folder_that_is_not_a_project(tmp_path):
         [sys.executable, "-m", "ufield.mcp_local", "--project", str(tmp_path)], capture_output=True, text=True, timeout=30
     )
     assert run.returncode == 2 and "not a μField project folder" in run.stderr
+
+
+async def test_feature_tools_round_trip(server):
+    # The conftest project is a bare GeoPackage: no geometry columns, no identifiers.
+    async with Client(server) as client:
+        layers = await client.call_tool("list_layers", {"source": "project"})
+        found = await client.call_tool("query_features", {"layer_id": "naytteet", "filter": "ph < 6"})
+        bad = await client.call_tool("query_features", {"layer_id": "naytteet", "filter": "ph < 6; DROP TABLE x"})
+    assert layers.is_error is False
+    assert {l["layer_id"] for l in layers.structured_content["layers"]} == {"naytteet", "plain"}
+    assert found.is_error is False and found.structured_content["total"] == 2
+    assert {f["ufield_uuid"] for f in found.structured_content["features"]} == {A, "0b1c2d3e-4f50-4a6b-8c7d-0e1f2a3b4c5d"}
+    assert bad.is_error and bad.structured_content["error"] == "invalid_filter"
