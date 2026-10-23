@@ -1,4 +1,4 @@
-# μField Android build (roadmap phase 1).
+# μField Android build (roadmap phase 1): signed APK and AAB, 16 KB page check.
 #
 # Builds the app for arm64-v8a on Linux, following upstream's Linux-host
 # instructions (INSTALL.md §4.1) instead of upstream's android.yml, which
@@ -68,7 +68,7 @@ jobs:
     timeout-minutes: 355
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           path: src
 
@@ -93,12 +93,12 @@ jobs:
             libsm-dev libice-dev  # host Qt (x64-linux qtbase) needs X11 session management (xcb_sm)
 
       - name: Install CMake and Ninja
-        uses: lukka/get-cmake@latest
+        uses: lukka/get-cmake@da37b03df250c343a90268c30948f7814f31d88e # latest, 2026-10-23
         with:
           cmakeVersion: ${{ env.CMAKE_VERSION }}
 
       - name: Set up JDK
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           java-version: ${{ env.JDK_VERSION }}
           distribution: zulu
@@ -113,7 +113,7 @@ jobs:
           echo "ANDROID_NDK_ROOT=$ANDROID_SDK_ROOT/ndk/${NDK_VERSION}" >> "$GITHUB_ENV"
 
       - name: ccache
-        uses: hendrikmuhs/ccache-action@v1.2
+        uses: hendrikmuhs/ccache-action@5ebbd400eff9e74630f759d94ddd7b6c26299639 # v1.2
         with:
           key: ccache-${{ env.VCPKG_TARGET_TRIPLET }}
           max-size: 500M
@@ -178,6 +178,7 @@ jobs:
             -DWITH_TRIMBLE_PROVIDERS=FALSE \
             -DUSE_KEYCHAIN=FALSE \
             -DQT_ANDROID_SIGN_APK=Yes \
+            -DQT_ANDROID_SIGN_AAB=Yes \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
             -GNinja \
             -S src \
@@ -194,11 +195,53 @@ jobs:
           ls -la ufield-*.apk
 
       - name: Upload APK
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: ufield-${{ env.MM_VERSION_CODE }}-${{ env.ANDROID_ABI }}-apk
           path: ufield-*.apk
           retention-days: 14
+
+      - name: Build AAB
+        run: |
+          ninja -C build aab
+          AAB="$(find build -name '*-release.aab' | head -n 1)"
+          test -n "$AAB"
+          mv "$AAB" "ufield-${MM_VERSION_CODE}-${ANDROID_ABI}.aab"
+          ls -la ufield-*.aab
+
+      - name: Upload AAB
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        with:
+          name: ufield-${{ env.MM_VERSION_CODE }}-${{ env.ANDROID_ABI }}-aab
+          path: ufield-*.aab
+          retention-days: 14
+
+      - name: Check 16 KB page alignment
+        # Play requires 16 KB page support for apps targeting Android 15+.
+        # Runs after the uploads, so the APK and AAB stay available even if it fails.
+        run: |
+          APK="$(ls ufield-*.apk | head -n 1)"
+          BT="$ANDROID_SDK_ROOT/build-tools/$SDK_BUILD_TOOLS"
+          READELF="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf"
+          fail=0
+          if ! "$BT/zipalign" -c -P 16 -v 4 "$APK" > zipalign.txt 2>&1; then
+            echo "::error title=16 KB zip alignment::$(grep -v ' (OK' zipalign.txt | tail -n 8 | tr '\n' ' ')"
+            fail=1
+          fi
+          mkdir -p apk-libs && unzip -q -o "$APK" 'lib/*' -d apk-libs
+          bad=()
+          for so in apk-libs/lib/*/*.so; do
+            for a in $("$READELF" -lW "$so" | awk '$1=="LOAD"{print $NF}' | sort -u); do
+              if [ $((a)) -lt 16384 ]; then bad+=("$(basename "$so") ($a)"); fi
+            done
+          done
+          total=$(ls apk-libs/lib/*/*.so | wc -l)
+          echo "Native libraries checked: $total, below 16 KB alignment: ${#bad[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ ${#bad[@]} -gt 0 ]; then
+            echo "::error title=16 KB ELF alignment::${#bad[@]} of $total libraries: ${bad[*]:0:15}"
+            fail=1
+          fi
+          exit $fail
 
       - name: Report vcpkg failure as annotations
         # Logs are also uploaded below, but annotations can be read through
@@ -242,7 +285,7 @@ jobs:
 
       - name: Upload vcpkg logs on failure
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         with:
           name: vcpkg-logs-${{ github.run_number }}
           path: |
