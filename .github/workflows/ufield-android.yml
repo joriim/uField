@@ -198,6 +198,41 @@ jobs:
           path: ufield-*.apk
           retention-days: 14
 
+      - name: Report vcpkg failure as annotations
+        # Logs are also uploaded below, but annotations can be read through
+        # the API (check-runs/<id>/annotations) without downloading artifacts.
+        if: failure()
+        run: |
+          python3 - <<'PY'
+          import glob, os, re
+
+          def annotate(title, text, limit=3800):
+              text = text.replace('%', '%25').replace('\r', '').replace('\n', '%0A')
+              print(f"::error title={title}::{text[-limit:]}")
+
+          manifest = 'build/vcpkg-manifest-install.log'
+          failed = []
+          if os.path.exists(manifest):
+              log = open(manifest, errors='replace').read()
+              failed = sorted(set(re.findall(r'error: building (\S+?):\S+ failed', log)))
+              tail = '\n'.join(l for l in log.splitlines() if re.search(r'error|failed|CMake Error', l, re.I))[-3800:]
+              annotate('vcpkg manifest install', tail or log[-3800:])
+          else:
+              print('::warning::no vcpkg-manifest-install.log')
+          print('failed ports:', failed)
+          shown = 0
+          for port in failed or ['*']:
+              logs = sorted(glob.glob(f'vcpkg/buildtrees/{port}/*-err.log') + glob.glob(f'vcpkg/buildtrees/{port}/*-out.log'),
+                            key=os.path.getmtime, reverse=True)
+              for path in logs[:3]:
+                  if shown >= 8:
+                      break
+                  text = open(path, errors='replace').read()
+                  errs = '\n'.join(l for l in text.splitlines() if re.search(r'error|fatal|not found|undefined', l, re.I))
+                  annotate(os.path.relpath(path, 'vcpkg/buildtrees'), (errs[-2500:] + '\n--- tail ---\n' + text[-1300:]) if errs else text[-3800:])
+                  shown += 1
+          PY
+
       - name: Upload vcpkg logs on failure
         if: failure()
         uses: actions/upload-artifact@v6
