@@ -96,8 +96,8 @@
     </message>
     <message>
         <location filename="../androidutils.cpp" line="229"/>
-        <source>Mergin Maps needs a storage permission in order to load pictures from gallery</source>
-        <translation>Mergin Maps tarvitsee tallennusluvan kuvien lataamiseen galleriasta</translation>
+        <source>μField needs a storage permission in order to load pictures from gallery</source>
+        <translation>μField tarvitsee tallennusluvan kuvien lataamiseen galleriasta</translation>
     </message>
     <message>
         <location filename="../androidutils.cpp" line="247"/>
@@ -295,18 +295,18 @@ Sitä ei lisätä projektiin.</translation>
     <name>InputProjUtils</name>
     <message>
         <location filename="../inputprojutils.cpp" line="77"/>
-        <source>Missing required PROJ datum shift grid: %1. For newly downloaded project please restart Mergin Maps.</source>
-        <translation>Vaadittu PROJ datumin siirtymä grid puuttuu: %1. Äskettäin ladattua projektia varten, käynnistä Mergin Maps uudelleen.</translation>
+        <source>Missing required PROJ datum shift grid: %1. For newly downloaded project please restart μField.</source>
+        <translation>Vaadittu PROJ datumin siirtymä grid puuttuu: %1. Äskettäin ladattua projektia varten, käynnistä μField uudelleen.</translation>
     </message>
     <message>
         <location filename="../inputprojutils.cpp" line="98"/>
-        <source>Error creating custom PROJ operation. For newly downloaded project please restart Mergin Maps.</source>
-        <translation>Virhe luotaessa mukautettua PROJ-toimintoa. Äskettäin ladattua projektia varten käynnistä Mergin Maps uudelleen.</translation>
+        <source>Error creating custom PROJ operation. For newly downloaded project please restart μField.</source>
+        <translation>Virhe luotaessa mukautettua PROJ-toimintoa. Äskettäin ladattua projektia varten käynnistä μField uudelleen.</translation>
     </message>
     <message>
         <location filename="../inputprojutils.cpp" line="108"/>
-        <source>Missing required PROJ datum shift grids: %1. For newly downloaded project please restart Mergin Maps.</source>
-        <translation>Vaaditut PROJ datumin siirtymä gridit puuttuuvat %1. Äskettäin ladattua projektia varten, käynnistä Mergin Maps uudelleen.</translation>
+        <source>Missing required PROJ datum shift grids: %1. For newly downloaded project please restart μField.</source>
+        <translation>Vaaditut PROJ datumin siirtymä gridit puuttuuvat %1. Äskettäin ladattua projektia varten, käynnistä μField uudelleen.</translation>
     </message>
 </context>
 <context>
@@ -411,6 +411,31 @@ Sitä ei lisätä projektiin.</translation>
         <location filename="../qml/settings/MMAboutPage.qml" line="102"/>
         <source>Developed by</source>
         <translation>Kehittänyt</translation>
+    </message>
+    <message>
+        <location filename="../qml/settings/MMAboutPage.qml"/>
+        <source>Field observations with location and metadata, stored where you choose.</source>
+        <translation>Kenttähavainnot sijainteineen ja metatietoineen, tallennettuna sinne minne itse valitset.</translation>
+    </message>
+    <message>
+        <location filename="../qml/settings/MMAboutPage.qml"/>
+        <source>Source code (GPL-3.0)</source>
+        <translation>Lähdekoodi (GPL-3.0)</translation>
+    </message>
+    <message>
+        <location filename="../qml/settings/MMAboutPage.qml"/>
+        <source>Published by Biomitta Oy</source>
+        <translation>Julkaisija: Biomitta Oy</translation>
+    </message>
+    <message>
+        <location filename="../qml/settings/MMAboutPage.qml"/>
+        <source>Based on Mergin Maps mobile by Lutra Consulting Ltd and contributors, licensed under GPL-2.0-or-later.</source>
+        <translation>Perustuu Lutra Consulting Ltd:n ja muiden tekijöiden Mergin Maps -mobiilisovellukseen, lisenssi GPL-2.0-or-later.</translation>
+    </message>
+    <message>
+        <location filename="../qml/settings/MMAboutPage.qml"/>
+        <source>This program comes with ABSOLUTELY NO WARRANTY. It is free software, and you are welcome to redistribute it under the terms of the GNU General Public License version 3.</source>
+        <translation>Tällä ohjelmalla ei ole MINKÄÄNLAISTA TAKUUTA. Se on vapaa ohjelmisto, ja voit levittää sitä GNU General Public License -lisenssin version 3 ehtojen mukaisesti.</translation>
     </message>
 </context>
 <context>

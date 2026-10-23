@@ -36,7 +36,7 @@
     <application 
         android:name="org.qtproject.qt.android.bindings.QtApplication"
         android:hardwareAccelerated="true"
-        android:label="Mergin Maps"
+        android:label="μField"
         android:allowBackup="true"
         android:fullBackupOnly="false"
         android:icon="@mipmap/ic_appicon"
@@ -60,6 +60,10 @@
                  <action android:name="android.intent.action.GET_CONTENT" />
             </intent-filter>
 
+            <!-- UFIELD: Mergin Maps cloud SSO redirect removed. The App Link can only verify for Mergin's own
+                 package, and μField does not sign in to Mergin's cloud. Re-add with our own host for service sign-in
+                 (release 2, docs/adr/0004-user-owned-data.md §2). -->
+            <!--
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.BROWSABLE" />
@@ -68,6 +72,7 @@
                 <data android:host="hello.merginmaps.com" />
                 <data android:pathPrefix="/mobile/sso-redirect" />
             </intent-filter>
+            -->
 
             <meta-data
                 android:name="android.app.lib_name" 
@@ -81,16 +86,17 @@
         <!-- Activity Android native camera -->
         <activity
             android:name="uk.co.lutraconsulting.CameraActivity"
-            android:label="Mergin Maps"
+            android:label="μField"
             android:parentActivityName="uk.co.lutraconsulting.MMActivity"
             android:configChanges="screenLayout|orientation|screenSize"
             >
              <meta-data android:name="android.app.lib_name" android:value="-- %%INSERT_APP_LIB_NAME%% --" />
         </activity>
 
+        <!-- UFIELD: authority follows the application id so it can't clash with Mergin Maps on the same device -->
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="uk.co.lutraconsulting.fileprovider"
+            android:authorities="${applicationId}.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true"
             >

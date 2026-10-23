@@ -50,7 +50,7 @@ ApplicationWindow {
     return Qt.Window
   }
 
-  title: "Mergin Maps" // Do not translate
+  title: "μField" // Do not translate // UFIELD: app name
 
   // Qt 6.9+ ApplicationWindow automatically adds safe area margins as padding to its
   // contentItem. Since this app manages safe areas manually via __style,

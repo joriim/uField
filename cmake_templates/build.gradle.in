@@ -83,6 +83,8 @@ android {
     }
 
     defaultConfig {
+        // UFIELD: own Play application id; the Java namespace stays uk.co.lutraconsulting to keep the upstream diff small
+        applicationId 'fi.biomitta.ufield'
         resConfig "en"
         minSdkVersion qtMinSdkVersion
         targetSdkVersion qtTargetSdkVersion

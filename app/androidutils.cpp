@@ -226,7 +226,7 @@ bool AndroidUtils::requestStoragePermission()
     }
     else
     {
-      emit notifyInfo( tr( "Mergin Maps needs a storage permission in order to load pictures from gallery" ) );
+      emit notifyInfo( tr( "μField needs a storage permission in order to load pictures from gallery" ) );
     }
     return false;
   }
@@ -313,7 +313,9 @@ void AndroidUtils::callCamera( const QString &targetPath, const QString &code )
   const QJniObject activity = QJniObject::fromString( QStringLiteral( "uk.co.lutraconsulting.CameraActivity" ) );
   const QJniObject intent = QJniObject( "android/content/Intent", "(Ljava/lang/String;)V", activity.object<jstring>() );
 
-  const QJniObject packageName = QJniObject::fromString( QStringLiteral( "uk.co.lutraconsulting" ) );
+  // UFIELD: the component's package is the application id (fi.biomitta.ufield), not the Java namespace
+  const QJniObject context = QJniObject( QNativeInterface::QAndroidApplication::context() );
+  const QJniObject packageName = context.callObjectMethod( "getPackageName", "()Ljava/lang/String;" );
   const QJniObject className = QJniObject::fromString( QStringLiteral( "uk.co.lutraconsulting.CameraActivity" ) );
 
   intent.callObjectMethod( "setClassName", "(Ljava/lang/String;Ljava/lang/String;)Landroid/content/Intent;", packageName.object<jstring>(), className.object<jstring>() );

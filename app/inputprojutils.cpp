@@ -74,7 +74,7 @@ void InputProjUtils::initCoordinateOperationHandlers()
     Q_UNUSED( destinationCrs )
     Q_UNUSED( sourceCrs )
     logUser( QStringLiteral( "missing required grid: %1" ).arg( grid.shortName ), mMissingRequiredGridReported );
-    warnUser( tr( "Missing required PROJ datum shift grid: %1. For newly downloaded project please restart Mergin Maps." ).arg( grid.shortName ) );
+    warnUser( tr( "Missing required PROJ datum shift grid: %1. For newly downloaded project please restart μField." ).arg( grid.shortName ) );
   } );
 
   QgsCoordinateTransform::setCustomMissingPreferredGridHandler( [ = ]( const QgsCoordinateReferenceSystem & sourceCrs,
@@ -95,7 +95,7 @@ void InputProjUtils::initCoordinateOperationHandlers()
     Q_UNUSED( destinationCrs )
     Q_UNUSED( sourceCrs )
     logUser( QStringLiteral( "coordinate operation creation error: %1" ).arg( error ), mCoordinateOperationCreationErrorReported );
-    warnUser( tr( "Error creating custom PROJ operation. For newly downloaded project please restart Mergin Maps." ) );
+    warnUser( tr( "Error creating custom PROJ operation. For newly downloaded project please restart μField." ) );
   } );
 
   QgsCoordinateTransform::setCustomMissingGridUsedByContextHandler( [ = ]( const QgsCoordinateReferenceSystem & sourceCrs,
@@ -105,7 +105,7 @@ void InputProjUtils::initCoordinateOperationHandlers()
     Q_UNUSED( destinationCrs )
     Q_UNUSED( sourceCrs )
     logUser( QStringLiteral( "custom missing grid used by context handler %1" ).arg( detailsToStr( desired ).join( ";" ) ), mMissingGridUsedByContextHandlerReported );
-    warnUser( tr( "Missing required PROJ datum shift grids: %1. For newly downloaded project please restart Mergin Maps." ).arg( detailsToStr( desired ).join( "<br>" ) ) );
+    warnUser( tr( "Missing required PROJ datum shift grids: %1. For newly downloaded project please restart μField." ).arg( detailsToStr( desired ).join( "<br>" ) ) );
   } );
 
   QgsCoordinateTransform::setFallbackOperationOccurredHandler( [ = ]( const QgsCoordinateReferenceSystem & sourceCrs,

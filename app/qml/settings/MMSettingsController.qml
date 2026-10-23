@@ -83,7 +83,7 @@ Item {
 
     MMAboutPage {
       onBackClicked: root.back()
-      onVisitWebsiteClicked: Qt.openUrlExternally( __inputHelp.mmWebLink )
+      onVisitWebsiteClicked: Qt.openUrlExternally( "https://github.com/joriim/uGIS" ) // UFIELD: GPL source; move to ufield.biomitta.fi when it exists
     }
   }
 

@@ -73,7 +73,7 @@ public class CameraActivity extends Activity {
             // Continue only if the File was successfully created
             if (photoFile != null) {
                 Uri photoURI = FileProvider.getUriForFile(this,
-                        "uk.co.lutraconsulting.fileprovider",
+                        getPackageName() + ".fileprovider", // UFIELD: authority follows the application id
                         photoFile);
 
                 takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI);
