@@ -3,6 +3,7 @@
 - Status: accepted, 2026-10-23
 - Decider: Miiro / Biomitta Oy
 - Relation: orders the work in ADR 0001–0006 into three releases. It doesn't change their designs. It replaces the "MVP scope" in `CLAUDE.md` with release 1 below.
+- **Amended 2026-10-23 by ADR 0009:** release 1 has **no cloud integration** and exports to one file; Google Drive sync moves to release 1.1.
 
 ## Context
 
@@ -18,21 +19,20 @@ The roadmap's phases add up to roughly 30–45 weeks for one or two developers e
 
 Ship in three releases. Each one is useful on its own, and each builds on the previous one without rework.
 
-### Release 1 — Standalone app (the MVP)
+### Release 1 — Standalone field recorder (the MVP, details in ADR 0009)
 
-No μField server and no μField account.
+No μField server, no account and no cloud integration.
 
-- The rebranded Mergin fork on Google Play: package `fi.biomitta.ufield`, μField name and icons, About screen with GPL notice and a source link, Mergin cloud sign-in and sync off.
-- **Storage:** `local`, `device_folder` (Android Storage Access Framework) and **Google Drive sync** with `drive.file`. Drive is connected with AppAuth on the device, and its tokens stay in the Android Keystore (`docs/licensing.md` §1.3 option B).
-- **Field data:** observations, photos and video with full capture metadata (rule 5); open QGIS projects.
-- **Layers:**
-  - Keyless open registry layers (Ruokavirasto, GTK open licence, SYKE, Metsäkeskus, FMI), with automatic attribution.
-  - MML layers only with the user's **own** MML key, stored on the device (ADR 0002 §1 "user's own service credentials").
-- **Notes:** typed given notes per point (ADR 0003 §2).
-- **Voice notes:** recorded offline with the audio kept; transcription arrives in release 2, and the audio stays in the project so it can be transcribed then.
-- **MCP from day 0:** `ufield-mcp` (local stdio, already built) works on the synced project folder from Claude Desktop and Claude Code. It reads and writes notes, and the analysis tools are added as they are built.
-- **Tools in the app:** every release-1 tool in `schema/tools.json` is implemented in ToolDispatcher and the UI (rule 1).
-- **Compliance:** no accounts, so Play's account-deletion rule doesn't apply. Data safety declares data sent to the user's own Drive. Privacy policy, in-app licences screen, and a source tag per release.
+- The rebranded Mergin fork on Google Play, with Mergin cloud and Mergin's tile server removed.
+- A built-in project created on first launch: **points and tracks with text, voice recordings, photos and videos**. Video and voice are recorded inside the app with full capture metadata (rule 5).
+- **Export to one file**, a `.ufield.zip` (GeoPackage + media + notes + STAC + QGIS project) or a GeoPackage only, through the Android share sheet or saved to a folder. Import a `.ufield.zip` the same way.
+- Background map: OpenStreetMap tiles (keyless, under the OSMF policy), MML with the user's own key, or an imported offline basemap file. Recording never needs a map.
+- `ufield-mcp` works on an exported project for Claude from day 0.
+- **Compliance:** no accounts and no developer-held data. Privacy policy, in-app licences screen, and a source tag per release.
+
+### Release 1.1 — Google Drive sync (ADR 0008)
+
+`drive.file` sync of the same projects, so the phone, QGIS desktop and `ufield-mcp --drive` share one project folder.
 
 ### Release 2 — Biomitta service (`service` profile, ADR 0002/0003/0004)
 
@@ -55,7 +55,8 @@ No μField server and no μField account.
 - `CLAUDE.md` "MVP scope" now points here: **MVP = release 1.**
 - `schema/tools.json`: each tool gets `x-ufield-release: 1 | 2 | 3`, so codegen, tests and the app build only what the current release needs. A follow-up PR tags all 27 tools.
 - Roadmap phases map onto releases:
-  - **Release 1:** phases 0, 1, 2 and 4, voice-note recording from phase 6, and the release-1 parts of 7 and 8.
+  - **Release 1:** phases 0, 1 and 2, export/import, voice and video recording, and the release-1 parts of 7 and 8.
+  - **Release 1.1:** phase 4 (Google Drive).
   - **Release 2:** phases 3 and 5, and the rest of 6.
   - **Release 3:** a new phase for the self-hosted profile.
 - The release-1 app must not depend on ufield-server at all. Server-only tools return a clear "needs the μField service" error, not a crash.

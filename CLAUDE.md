@@ -97,16 +97,15 @@ docs/                ADRs (docs/adr/NNNN-title.md), play-policy.md, dependencies
 
 ## MVP scope
 
-**MVP = release 1, the standalone app** (`docs/adr/0007-staged-releases.md`). It needs no μField server and no account:
-- rebranded fork on Play, with Mergin cloud off
-- `local`, `device_folder` and Google Drive storage (AppAuth, `drive.file`, tokens on the device)
-- observations, photos and video with full capture metadata; open QGIS projects
-- keyless open layers, plus MML layers with the user's own key
-- typed notes; voice notes recorded (transcribed in release 2)
-- `ufield-mcp` local stdio for Claude from day 0
+**MVP = release 1, the standalone field recorder** (`docs/adr/0007-staged-releases.md`, `docs/adr/0009-standalone-field-recorder.md`). No μField server, no account, **no cloud integration**:
+- rebranded fork on Play; Mergin cloud and `tiles.merginmaps.com` removed
+- built-in project on first launch: points and tracks with text, voice recordings, photos and videos, recorded in the app with full capture metadata
+- export to one file (`.ufield.zip` or GeoPackage) through the share sheet or a folder; import the same way
+- background map: OSM tiles (OSMF policy: own User-Agent, attribution, no offline), MML with the user's own key, or an imported offline basemap; recording never needs a map
+- `ufield-mcp` on an exported project for Claude from day 0
 - signed AAB on the Play internal track
 
-Release 2 adds the Biomitta service (sign-in, Farm Pack, cloud STT, voice agent, remote MCP, target areas). Release 3 adds own servers (self-hosted profile, Mergin CE, GPU workers). The designs for both are already in ADR 0001–0006; don't build them before their release.
+Release 1.1 adds Google Drive sync (`docs/adr/0008-google-drive-sync.md`). Release 2 adds the Biomitta service (sign-in, Farm Pack, cloud STT, voice agent, remote MCP, target areas). Release 3 adds own servers (self-hosted profile, Mergin CE, GPU workers). The designs for both are already in ADR 0001–0006; don't build them before their release.
 
 Out of all three releases for now: 3DGS and super-resolution workers, OneDrive, S3, peer-to-peer sharing, paid imagery.
 
