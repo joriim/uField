@@ -156,6 +156,7 @@
 #include "activeproject.h"
 #include "appsettings.h"
 #include "drivesync.h" // UFIELD: Google Drive sync
+#include "ufieldtranslations.h" // UFIELD: μField translations
 
 static QString getDataDir()
 {
@@ -449,6 +450,7 @@ int main( int argc, char *argv[] )
   {
     qDebug() <<  "Error in loading input translation for " << locale;
   }
+  ufield::installTranslations( app, locale ); // UFIELD: μField strings (ufield/i18n)
 
   QString appBundleDir;
 #ifdef ANDROID

@@ -63,7 +63,7 @@ namespace ufield
       static QString linkedFolderId( const QString &projectDir );
 
       /**
-       * Syncs \a projectDir with Drive, linking it to `μField/<folder name>` first if it is not
+       * Syncs \a projectDir (or the folder of the project file it names) with Drive, linking it to `μField/<folder name>` first if it is not
        * linked yet (the folder is created, or an existing one with that name is used).
        * \a direction is "both", "push" or "pull". Emits syncFinished. Returns false if busy or
        * the arguments are invalid (then nothing is emitted).

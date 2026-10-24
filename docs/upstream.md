@@ -29,9 +29,11 @@ Keep this list complete; it is the checklist for every upstream merge.
 | `app/androidutils.cpp` | Camera intent's package from `getPackageName()` | `setClassName` needs the applicationId, which is no longer `uk.co.lutraconsulting` |
 | `app/android/res/xml/file_paths.xml` | `Android/data/fi.biomitta.ufield/` | The app's external directory follows the applicationId |
 | `app/qml/main.qml` | Window title `μField` | Rebrand |
-| `CMakeLists.txt` | `add_subdirectory(ufield/storage)` | Builds μField's Drive sync library with the app |
-| `app/CMakeLists.txt` | Links `ufield_sync` into the app | Drive sync (ADR 0004) |
-| `app/main.cpp` | Includes `drivesync.h`; creates `DriveSync` as `__ufieldDriveSync`, its downloads added to `LocalProjectsManager` | Drive sync UI and tools |
+| `CMakeLists.txt` | `add_subdirectory(ufield/storage)`, `add_subdirectory(ufield/i18n)` | Builds μField's libraries with the app |
+| `app/CMakeLists.txt` | Links `ufield_sync` and `ufield_i18n` into the app | Drive sync (ADR 0004), translations |
+| `app/main.cpp` | Includes `drivesync.h` and `ufieldtranslations.h`; creates `DriveSync` as `__ufieldDriveSync`, its downloads added to `LocalProjectsManager`; installs μField translations after upstream's | Drive sync UI and tools; μField strings in Finnish |
+| `app/CMakeLists.txt` (QML) | Adds `ufield/qml` files to the QML module under upstream paths (`project/MMDriveProjectsTab.qml`) | μField QML lives in `ufield/qml` |
+| `app/qml/project/MMProjectController.qml` | Fourth footer tab "Drive" (`drive` state) showing `MMDriveProjectsTab`; footer buttons are a quarter wide | Google Drive projects in the project list |
 | `cmake_templates/build.gradle.in` | `play-services-auth` dependency | Google sign-in and Drive authorisation (AuthorizationClient) |
 | `cmake_templates/AndroidManifest.xml.in` | `fi.biomitta.ufield.DriveAuthActivity` | Shows Google's consent screen without changing `MMActivity` |
 

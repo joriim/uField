@@ -177,7 +177,8 @@ Item {
       states: [
         State { name: "home" },
         State { name: "workspace" },
-        State { name: "explore" }
+        State { name: "explore" },
+        State { name: "drive" } // UFIELD: Google Drive tab
       ]
 
       pageBottomMargin: 0
@@ -350,6 +351,13 @@ Item {
               setupProjectOpen( "" )
             }
           }
+
+          // UFIELD: Google Drive projects (ufield/qml/MMDriveProjectsTab.qml)
+          MMDriveProjectsTab {
+            id: driveProjectsTab
+
+            activeProjectFilePath: __activeProject.localProject.qgisProjectFilePath || ""
+          }
         }
       }
 
@@ -357,7 +365,7 @@ Item {
         id: pageFooter
 
         width: projectsPage.width
-        property int buttonWidth: Math.floor((projectsPage.width - 2 * __style.pageMargins) / 3)
+        property int buttonWidth: Math.floor((projectsPage.width - 2 * __style.pageMargins) / 4) // UFIELD: 4 tabs
 
         Component.onCompleted: setActiveButton( projectsPage.state )
 
@@ -366,6 +374,7 @@ Item {
             case "home": pageFooter.index = 0; break
             case "workspace": pageFooter.index = 1; break
             case "explore": pageFooter.index = 2; break
+            case "drive": pageFooter.index = 3; break // UFIELD
           }
         }
 
@@ -396,6 +405,14 @@ Item {
             iconSourceSelected: __style.globalFilledIcon
             onClicked: projectsPage.state = "explore"
           }
+
+          // UFIELD: Google Drive projects (ADR 0004)
+          MMToolbarButton {
+            text: driveProjectsTab.tabTitle
+            iconSource: __style.cloudIcon
+            iconSourceSelected: __style.cloudIcon
+            onClicked: projectsPage.state = "drive"
+          }
         }
       }
 
@@ -410,6 +427,10 @@ Item {
             break
           case "explore":
             publicProjectsTab.refreshProjectsList( keepSearchFilter )
+            break
+          case "drive": // UFIELD
+            driveProjectsTab.refreshProjectsList()
+            stackView.pending = false
             break
         }
       }

@@ -108,8 +108,9 @@ class TestDriveSync : public QObject
       write( phoneB.filePath( "Pellot 2026/project.qgz" ), "edit on b" );
       QVERIFY( b->syncProject( phoneB.filePath( "Pellot 2026" ) ) );
       QVERIFY( waitSync( *b ).value( "ok" ).toBool() );
-      QVERIFY( a->syncProject( project ) );
+      QVERIFY( a->syncProject( project + "/project.qgz" ) ); // a project file path syncs its folder
       const QVariantMap conflict = waitSync( *a );
+      QCOMPARE( conflict.value( "project_dir" ).toString(), project );
       QVERIFY( conflict.value( "ok" ).toBool() );
       const QStringList copies = conflict.value( "conflicts" ).toStringList();
       QCOMPARE( copies.size(), 1 );

@@ -171,7 +171,9 @@ namespace ufield
     SyncDirection dir;
     if ( !parseDirection( direction, dir ) )
       return false;
-    return startSync( projectDir, dir, false );
+    // QML has the project file path (LocalProject::qgisProjectFilePath); sync its folder.
+    const QFileInfo info( projectDir );
+    return startSync( info.isFile() ? info.absolutePath() : projectDir, dir, false );
   }
 
   bool DriveSync::startSync( const QString &projectDir, SyncDirection dir, bool download )

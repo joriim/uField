@@ -510,8 +510,8 @@ endif ()
 # ########################################################################################
 
 target_link_libraries(MerginMaps PUBLIC mm_core)
-# UFIELD: μField Drive sync (ufield/storage)
-target_link_libraries(MerginMaps PRIVATE ufield_sync)
+# UFIELD: μField Drive sync and translations (ufield/storage, ufield/i18n)
+target_link_libraries(MerginMaps PRIVATE ufield_sync ufield_i18n)
 
 # at least on Linux qgis_core needs to be linked before Qt libs, otherwise one gets "DSO
 # missing from command line" linker error about missing symbol from qt6::core5compat
@@ -722,6 +722,14 @@ set(MM_QML_SRCS)
 foreach (src ${MM_QML})
   set(MM_QML_SRCS ${MM_QML_SRCS} qml/${src})
   set_source_files_properties(qml/${src} PROPERTIES QT_RESOURCE_ALIAS ${src})
+endforeach ()
+
+# UFIELD: μField QML from ufield/qml, served next to upstream's files (alias = path in the module)
+set(UFIELD_QML project/MMDriveProjectsTab.qml)
+foreach (alias ${UFIELD_QML})
+  get_filename_component(name ${alias} NAME)
+  set(MM_QML_SRCS ${MM_QML_SRCS} ../ufield/qml/${name})
+  set_source_files_properties(../ufield/qml/${name} PROPERTIES QT_RESOURCE_ALIAS ${alias})
 endforeach ()
 
 # For some reason, this call cannot be in qml/CMakeLists.txt
