@@ -33,11 +33,13 @@ Keep this list complete; it is the checklist for every upstream merge.
 | `app/CMakeLists.txt` | Adds `ufield/app/ufieldapp.cpp` to the app; links `ufield_storagetools` and `ufield_i18n` | μField tools, Drive sync (ADR 0004), translations |
 | `app/main.cpp` | Includes `ufieldapp.h` and `ufieldtranslations.h`; creates `ufield::UfieldApp` (ToolDispatcher as `__ufieldTools`, Drive sync as `__ufieldDriveSync`); installs μField translations after upstream's | μField tools and Drive sync; μField strings in Finnish |
 | `app/CMakeLists.txt` (QML) | Adds `ufield/qml` files to the QML module under upstream paths (`project/MMDriveProjectsTab.qml`) | μField QML lives in `ufield/qml` |
-| `app/qml/project/MMProjectController.qml` | Fourth footer tab "Drive" (`drive` state) showing `MMDriveProjectsTab`; footer buttons are a quarter wide | Google Drive projects in the project list |
+| `app/qml/project/MMProjectController.qml` | Fourth footer tab "Drive" (`drive` state) showing `MMDriveProjectsTab`, with its header title; the tab stack follows the page state; "Projects", "Explore", the Mergin account button and the Mergin ping only with `__ufieldMerginCloud` | Google Drive projects in the project list; no Mergin cloud in μField by default |
+| `app/qml/main.qml` | The map's Sync button runs `sync_project` (Drive) through `MMUfieldSync` unless `__ufieldMerginCloud`; it spins while a Drive sync runs | Sync goes to the user's Drive, not Mergin |
+| `app/CMakeLists.txt` (option) | `UFIELD_MERGIN_CLOUD` (default OFF) | Builds with Mergin Maps cloud features, e.g. for a later MerginCE storage |
 | `cmake_templates/build.gradle.in` | `play-services-auth` dependency | Google sign-in and Drive authorisation (AuthorizationClient) |
 | `cmake_templates/AndroidManifest.xml.in` | `fi.biomitta.ufield.DriveAuthActivity` | Shows Google's consent screen without changing `MMActivity` |
 
-Rebrand still to do: the launcher icon, splash screen and colours (need μField artwork); user-visible "Mergin Maps" strings in `tr()` texts, together with their Finnish and English translations; turning off Mergin cloud sign-in by default.
+Rebrand still to do: the launcher icon, splash screen and colours (need μField artwork); user-visible "Mergin Maps" strings in `tr()` texts, together with their Finnish and English translations; Mergin sign-in pages still reachable from settings and onboarding (the project list no longer leads there).
 
 ## Building
 

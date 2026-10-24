@@ -305,7 +305,10 @@ ApplicationWindow {
         text: qsTr("Sync")
         iconSource: __style.syncIcon
         onClicked: {
-          __activeProject.requestSync()
+          if ( __ufieldMerginCloud )
+            __activeProject.requestSync()
+          else
+            ufieldSync.syncOpenProject() // UFIELD: Google Drive sync (sync_project) instead of Mergin
         }
       }
 
@@ -1238,6 +1241,19 @@ ApplicationWindow {
     if ( Qt.platform.os !== "ios" && Qt.platform.os !== "android")
     {
       storeWindowPositionTimer.restart()
+    }
+  }
+
+  // UFIELD: Google Drive sync from the map's Sync button; the button spins while a Drive sync runs
+  MMUfieldSync {
+    id: ufieldSync
+  }
+
+  Connections {
+    target: __ufieldMerginCloud ? null : __ufieldDriveSync
+
+    function onBusyChanged() {
+      syncButton.iconRotateAnimationRunning = __ufieldDriveSync.busy
     }
   }
 }

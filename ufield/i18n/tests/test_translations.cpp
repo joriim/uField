@@ -24,7 +24,7 @@ class TestTranslations : public QObject
     {
       QVERIFY( ufield::installTranslations( *QCoreApplication::instance(), QLocale( QLocale::Finnish, QLocale::Finland ) ) );
       QCOMPARE( QCoreApplication::translate( "MMDriveProjectsTab", "Download" ), QStringLiteral( "Lataa" ) );
-      QCOMPARE( QCoreApplication::translate( "MMDriveProjectsTab", "%n file(s) changed on two devices; both versions were kept", "", 2 ),
+      QCOMPARE( QCoreApplication::translate( "MMUfieldSync", "%n file(s) changed on two devices; both versions were kept", "", 2 ),
                 QStringLiteral( "2 tiedostoa muuttui kahdella laitteella; molemmat versiot säilytettiin" ) );
     }
 

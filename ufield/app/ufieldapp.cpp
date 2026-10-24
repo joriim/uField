@@ -64,6 +64,12 @@ namespace ufield
   {
     context->setContextProperty( QStringLiteral( "__ufieldTools" ), mTools.get() );
     context->setContextProperty( QStringLiteral( "__ufieldDriveSync" ), mDrive.get() );
+    // Mergin Maps cloud (workspace and public projects, Mergin sign-in): off in μField unless built with UFIELD_MERGIN_CLOUD.
+#ifdef UFIELD_MERGIN_CLOUD
+    context->setContextProperty( QStringLiteral( "__ufieldMerginCloud" ), true );
+#else
+    context->setContextProperty( QStringLiteral( "__ufieldMerginCloud" ), false );
+#endif
   }
 
 } // namespace ufield

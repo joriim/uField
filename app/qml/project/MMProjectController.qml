@@ -187,7 +187,8 @@ Item {
       onBackClicked: root.hidePanel()
 
       onStateChanged: {
-        __merginApi.pingMergin()
+        if ( __ufieldMerginCloud ) // UFIELD: no Mergin server traffic unless Mergin cloud is enabled
+          __merginApi.pingMergin()
         projectsPage.refreshProjectList()
 
         pageFooter.setActiveButton( projectsPage.state )
@@ -206,10 +207,14 @@ Item {
         else if ( projectsPage.state === "workspace" ) {
           return __merginApi.userInfo.activeWorkspaceName ? __merginApi.userInfo.activeWorkspaceName : qsTr( "Projects" )
         }
+        else if ( projectsPage.state === "drive" ) { // UFIELD
+          return driveProjectsTab.tabTitle
+        }
         return qsTr("Explore")
       }
 
       pageHeader.rightItemContent: Item {
+        visible: __ufieldMerginCloud // UFIELD: the Mergin account; hidden unless Mergin cloud is enabled
 
         width: 40 * __dp
         height: width
@@ -283,7 +288,8 @@ Item {
           width: parent.width
           height: parent.height
 
-          currentIndex: pageFooter.index
+          // UFIELD: follows the page state, since hidden footer buttons shift the footer index
+          currentIndex: ( { "home": 0, "workspace": 1, "explore": 2, "drive": 3 } )[ projectsPage.state ] || 0
 
           MMProjectHomeTab {
             id: homeTab
@@ -374,7 +380,7 @@ Item {
             case "home": pageFooter.index = 0; break
             case "workspace": pageFooter.index = 1; break
             case "explore": pageFooter.index = 2; break
-            case "drive": pageFooter.index = 3; break // UFIELD
+            case "drive": pageFooter.index = __ufieldMerginCloud ? 3 : 1; break // UFIELD: Projects and Explore may be hidden
           }
         }
 
@@ -390,6 +396,7 @@ Item {
 
           MMToolbarButton {
             id: createdProjectsBtn
+            visible: __ufieldMerginCloud // UFIELD: Mergin workspace projects
 
             text: qsTr("Projects")
             iconSource: __style.projectsIcon
@@ -399,6 +406,7 @@ Item {
 
           MMToolbarButton {
             id: publicProjectsBtn
+            visible: __ufieldMerginCloud // UFIELD: Mergin public projects
 
             text: qsTr("Explore")
             iconSource: __style.globalIcon

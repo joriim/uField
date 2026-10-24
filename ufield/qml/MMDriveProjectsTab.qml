@@ -30,7 +30,7 @@ Item {
   property string listError: ""
   property bool listed: false
 
-  //! call id -> "list" | "sync" | "download"
+  //! call id -> "list"; sync and download results are reported by syncReporter
   property var pendingCalls: ({})
 
   function callTool( kind, tool, args ) {
@@ -43,21 +43,6 @@ Item {
     if ( !__ufieldDriveSync.busy ) {
       callTool( "list", "list_projects", { "storage": "google_drive" } )
     }
-  }
-
-  function describe( result ) {
-    if ( result.error !== undefined ) {
-      return qsTr( "Sync failed: %1" ).arg( result.message )
-    }
-    let text = qsTr( "Synced: %1 uploaded, %2 downloaded, %3 deleted" )
-                 .arg( result.uploaded ).arg( result.downloaded ).arg( result.deleted )
-    if ( result.conflicts.length > 0 ) {
-      text += "\n" + qsTr( "%n file(s) changed on two devices; both versions were kept", "", result.conflicts.length )
-    }
-    if ( result.busy_files.length > 0 ) {
-      text += "\n" + qsTr( "Not synced while being edited: %1. Sync again after saving." ).arg( result.busy_files.join( ", " ) )
-    }
-    return text
   }
 
   Connections {
@@ -76,22 +61,13 @@ Item {
         root.driveProjects = result.projects !== undefined ? result.projects : []
         root.listError = result.error !== undefined ? result.message : ""
         root.listed = true
-        return
       }
-      if ( result.error === "already_exists" || result.error === "busy" || result.error === "no_open_project" ) {
-        __notificationModel.addError( result.message )
-      }
-      else if ( result.error !== undefined ) {
-        __notificationModel.addError( root.describe( result ) )
-      }
-      else if ( result.conflicts.length > 0 || result.busy_files.length > 0 ) {
-        __notificationModel.addWarning( root.describe( result ) )
-      }
-      else {
-        __notificationModel.addSuccess( root.describe( result ) )
-      }
-      root.refreshProjectsList()
     }
+  }
+
+  MMUfieldSync {
+    id: syncReporter
+    onFinished: root.refreshProjectsList()
   }
 
   Column {
@@ -112,7 +88,7 @@ Item {
       width: parent.width
       text: qsTr( "Sync this project with Google Drive" )
       enabled: root.activeProjectFilePath !== "" && !__ufieldDriveSync.busy
-      onClicked: root.callTool( "sync", "sync_project", { "direction": "both" } )
+      onClicked: syncReporter.syncOpenProject()
     }
 
     MMText {
@@ -161,8 +137,8 @@ Item {
         size: MMButton.Sizes.Small
         type: MMButton.Types.Secondary
         enabled: !__ufieldDriveSync.busy
-        onClicked: root.callTool( "download", "download_project",
-                                  { "storage": "google_drive", "project_id": modelData.project_id, "name": modelData.name } )
+        onClicked: syncReporter.track( __ufieldTools.callFromUi( "download_project",
+                                         { "storage": "google_drive", "project_id": modelData.project_id, "name": modelData.name } ) )
       }
     }
 

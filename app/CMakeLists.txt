@@ -514,6 +514,10 @@ target_link_libraries(MerginMaps PUBLIC mm_core)
 target_sources(MerginMaps PRIVATE ${CMAKE_SOURCE_DIR}/ufield/app/ufieldapp.cpp ${CMAKE_SOURCE_DIR}/ufield/app/ufieldapp.h)
 target_include_directories(MerginMaps PRIVATE ${CMAKE_SOURCE_DIR}/ufield/app)
 target_link_libraries(MerginMaps PRIVATE ufield_storagetools ufield_i18n)
+option(UFIELD_MERGIN_CLOUD "Show Mergin Maps cloud projects and sign-in (off in μField)" OFF)
+if(UFIELD_MERGIN_CLOUD)
+  target_compile_definitions(MerginMaps PRIVATE UFIELD_MERGIN_CLOUD)
+endif()
 
 # at least on Linux qgis_core needs to be linked before Qt libs, otherwise one gets "DSO
 # missing from command line" linker error about missing symbol from qt6::core5compat
@@ -727,7 +731,7 @@ foreach (src ${MM_QML})
 endforeach ()
 
 # UFIELD: μField QML from ufield/qml, served next to upstream's files (alias = path in the module)
-set(UFIELD_QML project/MMDriveProjectsTab.qml)
+set(UFIELD_QML project/MMDriveProjectsTab.qml project/MMUfieldSync.qml)
 foreach (alias ${UFIELD_QML})
   get_filename_component(name ${alias} NAME)
   set(MM_QML_SRCS ${MM_QML_SRCS} ../ufield/qml/${name})

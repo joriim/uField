@@ -9,30 +9,7 @@
         <translation>Drive</translation>
     </message>
     <message>
-        <location line="+26"/>
-        <source>Sync failed: %1</source>
-        <translation>Synkronointi epäonnistui: %1</translation>
-    </message>
-    <message>
-        <location line="+2"/>
-        <source>Synced: %1 uploaded, %2 downloaded, %3 deleted</source>
-        <translation>Synkronoitu: %1 lähetetty, %2 ladattu, %3 poistettu</translation>
-    </message>
-    <message numerus="yes">
-        <location line="+3"/>
-        <source>%n file(s) changed on two devices; both versions were kept</source>
-        <translation>
-            <numerusform>%n tiedosto muuttui kahdella laitteella; molemmat versiot säilytettiin</numerusform>
-            <numerusform>%n tiedostoa muuttui kahdella laitteella; molemmat versiot säilytettiin</numerusform>
-        </translation>
-    </message>
-    <message>
-        <location line="+3"/>
-        <source>Not synced while being edited: %1. Sync again after saving.</source>
-        <translation>Ei synkronoitu, koska tiedostoa muokataan: %1. Synkronoi uudelleen tallennuksen jälkeen.</translation>
-    </message>
-    <message>
-        <location line="+50"/>
+        <location line="+60"/>
         <source>Projects are kept in the μField folder of your Google Drive. μField can only see the files it created there.</source>
         <translation>Projektit tallennetaan Google Driven μField-kansioon. μField näkee siellä vain itse luomansa tiedostot.</translation>
     </message>
@@ -65,6 +42,32 @@
         <location line="+1"/>
         <source>No projects in Google Drive yet. Sync a project to add it.</source>
         <translation>Google Drivessa ei ole vielä projekteja. Synkronoi projekti, niin se lisätään sinne.</translation>
+    </message>
+</context>
+<context>
+    <name>MMUfieldSync</name>
+    <message>
+        <location filename="../qml/MMUfieldSync.qml" line="+37"/>
+        <source>Sync failed: %1</source>
+        <translation>Synkronointi epäonnistui: %1</translation>
+    </message>
+    <message>
+        <location line="+2"/>
+        <source>Synced: %1 uploaded, %2 downloaded, %3 deleted</source>
+        <translation>Synkronoitu: %1 lähetetty, %2 ladattu, %3 poistettu</translation>
+    </message>
+    <message numerus="yes">
+        <location line="+3"/>
+        <source>%n file(s) changed on two devices; both versions were kept</source>
+        <translation>
+            <numerusform>%n tiedosto muuttui kahdella laitteella; molemmat versiot säilytettiin</numerusform>
+            <numerusform>%n tiedostoa muuttui kahdella laitteella; molemmat versiot säilytettiin</numerusform>
+        </translation>
+    </message>
+    <message>
+        <location line="+3"/>
+        <source>Not synced while being edited: %1. Sync again after saving.</source>
+        <translation>Ei synkronoitu, koska tiedostoa muokataan: %1. Synkronoi uudelleen tallennuksen jälkeen.</translation>
     </message>
 </context>
 <context>
