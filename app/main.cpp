@@ -155,6 +155,7 @@
 #include "qgsapplication.h"
 #include "activeproject.h"
 #include "appsettings.h"
+#include "drivesync.h" // UFIELD: Google Drive sync
 
 static QString getDataDir()
 {
@@ -278,6 +279,7 @@ void initDeclarative()
   qmlRegisterType<InvitationsModel>( "mm", 1, 0, "InvitationsModel" );
   qmlRegisterType<InvitationsProxyModel>( "mm", 1, 0, "InvitationsProxyModel" );
   qmlRegisterType<ChangelogModel>( "mm", 1, 0, "ChangelogModel" );
+  qmlRegisterType<ufield::DriveSync>( "ufield", 1, 0, "DriveSync" ); // UFIELD: Google Drive sync (ADR 0004)
   qmlRegisterUncreatableType<AttributePreviewModel>( "mm", 1, 0, "AttributePreviewModel", "" );
   qmlRegisterUncreatableMetaObject( ProjectStatus::staticMetaObject, "mm", 1, 0, "ProjectStatus", "ProjectStatus Enum" );
   qRegisterMetaType< FeatureLayerPair >( "FeatureLayerPair" );

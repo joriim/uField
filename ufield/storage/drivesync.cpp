@@ -19,6 +19,10 @@
 #include <QSysInfo>
 #include <QThread>
 
+#ifdef Q_OS_ANDROID
+#include <QJniObject>
+#endif
+
 #include "driveauth.h"
 #include "syncengine.h"
 
@@ -79,13 +83,24 @@ namespace ufield
     }
   } // namespace
 
+  //! The phone model on Android ("Pixel 8"); the host name elsewhere.
+  static QString defaultDeviceName()
+  {
+#ifdef Q_OS_ANDROID
+    const QString model = QJniObject::getStaticObjectField( "android/os/Build", "MODEL", "Ljava/lang/String;" ).toString();
+    if ( !model.isEmpty() )
+      return model;
+#endif
+    return QSysInfo::machineHostName();
+  }
+
   QString DriveSync::appFolderName() { return QString( QChar( 0x03BC ) ) + QStringLiteral( "Field" ); } // μField, CLAUDE.md rule 4
 
   DriveSync::DriveSync( QObject *parent, TokenProviderFactory tokens, const QUrl &apiBase )
     : QObject( parent )
     , mTokens( std::move( tokens ) )
     , mApiBase( apiBase )
-    , mDeviceName( QSysInfo::machineHostName() )
+    , mDeviceName( defaultDeviceName() )
   {
   }
 
