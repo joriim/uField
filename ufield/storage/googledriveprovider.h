@@ -61,6 +61,9 @@ namespace ufield
        */
       bool findOrCreateFolder( const QString &parentId, const QString &name, QString &folderId, QString &error );
 
+      //! The folders directly in \a parentId as (name, id), oldest first.
+      bool listFolders( const QString &parentId, QList<QPair<QString, QString>> &folders, QString &error );
+
     private:
       struct Response
       {

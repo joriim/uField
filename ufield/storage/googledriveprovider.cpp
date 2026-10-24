@@ -300,6 +300,34 @@ namespace ufield
            ok( response, QStringLiteral( "moving to trash" ), error );
   }
 
+  bool GoogleDriveProvider::listFolders( const QString &parentId, QList<QPair<QString, QString>> &folders, QString &error )
+  {
+    folders.clear();
+    QString pageToken;
+    do
+    {
+      QList<QPair<QString, QString>> query {
+        { QStringLiteral( "q" ), QStringLiteral( "mimeType = %1 and %2 in parents and trashed = false" ).arg( quoted( QLatin1String( kFolderMimeType ) ), quoted( parentId ) ) },
+        { QStringLiteral( "fields" ), QStringLiteral( "nextPageToken,files(id,name)" ) },
+        { QStringLiteral( "pageSize" ), QStringLiteral( "1000" ) },
+        { QStringLiteral( "orderBy" ), QStringLiteral( "createdTime" ) },
+      };
+      if ( !pageToken.isEmpty() )
+        query.append( { QStringLiteral( "pageToken" ), pageToken } );
+      Response response;
+      if ( !send( "GET", api( QStringLiteral( "/drive/v3/files" ), query ), {}, nullptr, response, error ) || !ok( response, QStringLiteral( "listing folders" ), error ) )
+        return false;
+      const QJsonObject json = jsonOf( response.body );
+      for ( const QJsonValue &value : json.value( QStringLiteral( "files" ) ).toArray() )
+      {
+        const QJsonObject f = value.toObject();
+        folders.append( { f.value( QStringLiteral( "name" ) ).toString(), f.value( QStringLiteral( "id" ) ).toString() } );
+      }
+      pageToken = json.value( QStringLiteral( "nextPageToken" ) ).toString();
+    } while ( !pageToken.isEmpty() );
+    return true;
+  }
+
   bool GoogleDriveProvider::findOrCreateFolder( const QString &parentId, const QString &name, QString &folderId, QString &error )
   {
     const QList<QPair<QString, QString>> query {
