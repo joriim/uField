@@ -279,7 +279,6 @@ void initDeclarative()
   qmlRegisterType<InvitationsModel>( "mm", 1, 0, "InvitationsModel" );
   qmlRegisterType<InvitationsProxyModel>( "mm", 1, 0, "InvitationsProxyModel" );
   qmlRegisterType<ChangelogModel>( "mm", 1, 0, "ChangelogModel" );
-  qmlRegisterType<ufield::DriveSync>( "ufield", 1, 0, "DriveSync" ); // UFIELD: Google Drive sync (ADR 0004)
   qmlRegisterUncreatableType<AttributePreviewModel>( "mm", 1, 0, "AttributePreviewModel", "" );
   qmlRegisterUncreatableMetaObject( ProjectStatus::staticMetaObject, "mm", 1, 0, "ProjectStatus", "ProjectStatus Enum" );
   qRegisterMetaType< FeatureLayerPair >( "FeatureLayerPair" );
@@ -756,6 +755,11 @@ int main( int argc, char *argv[] )
   engine.rootContext()->setContextProperty( "__activeLayer", &al );
   engine.rootContext()->setContextProperty( "__projectWizard", &pw );
   engine.rootContext()->setContextProperty( "__localProjectsManager", &localProjectsManager );
+  // UFIELD: Google Drive sync (ADR 0004); downloaded projects join the local project list
+  ufield::DriveSync driveSync;
+  driveSync.setProjectsDir( localProjectsManager.dataDir() );
+  QObject::connect( &driveSync, &ufield::DriveSync::projectDownloaded, &localProjectsManager, &LocalProjectsManager::addLocalProject );
+  engine.rootContext()->setContextProperty( "__ufieldDriveSync", &driveSync );
   engine.rootContext()->setContextProperty( "__variablesManager", vm.get() );
 
   // add image provider to pass QIcons/QImages from C++ to QML

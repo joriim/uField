@@ -112,6 +112,14 @@ namespace ufield
     emit deviceNameChanged();
   }
 
+  void DriveSync::setProjectsDir( const QString &dir )
+  {
+    if ( dir == mProjectsDir )
+      return;
+    mProjectsDir = dir;
+    emit projectsDirChanged();
+  }
+
   QString DriveSync::linkedFolderId( const QString &projectDir )
   {
     QFile f( linkPath( projectDir ) );
@@ -132,13 +140,21 @@ namespace ufield
 
   GoogleDriveProvider::TokenProvider DriveSync::tokens() const { return mTokens ? mTokens() : driveTokenProvider( true ); }
 
-  bool DriveSync::start( std::function<void()> work )
+  bool DriveSync::start( std::function<std::function<void()>()> work )
   {
     if ( mBusy )
       return false;
     mBusy = true;
     emit busyChanged();
-    QThread *thread = QThread::create( std::move( work ) );
+    // The worker never touches this object. Its result is delivered through QThread::finished,
+    // a queued connection that Qt drops if this object is destroyed first.
+    auto deliver = std::make_shared<std::function<void()>>();
+    QThread *thread = QThread::create( [work = std::move( work ), deliver] { *deliver = work(); } );
+    connect( thread, &QThread::finished, this, [this, deliver] {
+      finish();
+      if ( *deliver )
+        ( *deliver )();
+    } );
     connect( thread, &QThread::finished, thread, &QObject::deleteLater );
     thread->start();
     return true;
@@ -153,13 +169,20 @@ namespace ufield
   bool DriveSync::syncProject( const QString &projectDir, const QString &direction )
   {
     SyncDirection dir;
-    if ( !parseDirection( direction, dir ) || !QFileInfo( projectDir ).isDir() )
+    if ( !parseDirection( direction, dir ) )
+      return false;
+    return startSync( projectDir, dir, false );
+  }
+
+  bool DriveSync::startSync( const QString &projectDir, SyncDirection dir, bool download )
+  {
+    if ( mBusy || !QFileInfo( projectDir ).isDir() )
       return false;
 
     const QString suffix = conflictSuffix();
     const QString linked = linkedFolderId( projectDir );
     const QString name = QFileInfo( projectDir ).fileName();
-    return start( [this, projectDir, dir, suffix, linked, name, token = tokens(), apiBase = mApiBase] {
+    return start( [this, projectDir, dir, download, suffix, linked, name, token = tokens(), apiBase = mApiBase]() -> std::function<void()> {
       QVariantMap result;
       QString folderId = linked;
       QString error;
@@ -178,16 +201,17 @@ namespace ufield
         GoogleDriveProvider drive( folderId, token, apiBase );
         result = toMap( projectDir, SyncEngine( projectDir, drive ).sync( suffix, dir ) );
       }
-      // Delivered on this object's thread; dropped if the object is gone.
-      QMetaObject::invokeMethod( this, [this, result] {
-          finish();
-          emit syncFinished( result ); }, Qt::QueuedConnection );
+      return std::function<void()>( [this, result, download, projectDir, name] {
+        emit syncFinished( result );
+        if ( download && result.value( QStringLiteral( "ok" ) ).toBool() )
+          emit projectDownloaded( projectDir, name );
+      } );
     } );
   }
 
   bool DriveSync::listDriveProjects()
   {
-    return start( [this, token = tokens(), apiBase = mApiBase] {
+    return start( [this, token = tokens(), apiBase = mApiBase]() -> std::function<void()> {
       GoogleDriveProvider drive( QString::fromLatin1( kRoot ), token, apiBase );
       QString rootId, error;
       QList<QPair<QString, QString>> folders;
@@ -197,9 +221,7 @@ namespace ufield
         for ( const auto &folder : folders )
           projects << QVariantMap { { QStringLiteral( "name" ), folder.first }, { QStringLiteral( "folder_id" ), folder.second } };
       }
-      QMetaObject::invokeMethod( this, [this, projects, error] {
-          finish();
-          emit projectsListed( projects, error ); }, Qt::QueuedConnection );
+      return std::function<void()>( [this, projects, error] { emit projectsListed( projects, error ); } );
     } );
   }
 
@@ -208,14 +230,17 @@ namespace ufield
     if ( mBusy || folderId.isEmpty() || name.isEmpty() || name.contains( QLatin1Char( '/' ) ) || name.contains( QLatin1Char( '\\' ) ) ||
          name == QLatin1String( "." ) || name == QLatin1String( ".." ) )
       return false;
-    const QString projectDir = QDir( parentDir ).filePath( name );
+    const QString parent = parentDir.isEmpty() ? mProjectsDir : parentDir;
+    if ( parent.isEmpty() )
+      return false;
+    const QString projectDir = QDir( parent ).filePath( name );
     if ( QFileInfo::exists( projectDir ) || !QDir().mkpath( projectDir ) )
       return false;
 
     QString error;
     if ( !writeLink( projectDir, folderId, error ) )
       return false;
-    return syncProject( projectDir, QStringLiteral( "pull" ) );
+    return startSync( projectDir, SyncDirection::Pull, true );
   }
 
 } // namespace ufield

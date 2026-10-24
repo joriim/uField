@@ -19,6 +19,7 @@
 #include <functional>
 
 #include "googledriveprovider.h"
+#include "syncengine.h"
 
 namespace ufield
 {
@@ -39,6 +40,7 @@ namespace ufield
       Q_OBJECT
       Q_PROPERTY( bool busy READ busy NOTIFY busyChanged )
       Q_PROPERTY( QString deviceName READ deviceName WRITE setDeviceName NOTIFY deviceNameChanged )
+      Q_PROPERTY( QString projectsDir READ projectsDir WRITE setProjectsDir NOTIFY projectsDirChanged )
 
     public:
       //! Name of the app folder in My Drive.
@@ -53,6 +55,9 @@ namespace ufield
       bool busy() const { return mBusy; }
       QString deviceName() const { return mDeviceName; }
       void setDeviceName( const QString &name );
+      //! Where downloadProject creates projects by default: the app's local projects folder.
+      QString projectsDir() const { return mProjectsDir; }
+      void setProjectsDir( const QString &dir );
 
       //! The Drive folder id the project is linked to, or empty.
       static QString linkedFolderId( const QString &projectDir );
@@ -70,13 +75,17 @@ namespace ufield
 
       /**
        * Downloads the Drive project \a folderId into a new folder \a name under \a parentDir
-       * and links it. Emits syncFinished. Fails if the target folder already exists.
+       * (default projectsDir) and links it. Emits syncFinished, then projectDownloaded when it
+       * succeeded. Fails if the target folder already exists.
        */
-      Q_INVOKABLE bool downloadProject( const QString &folderId, const QString &name, const QString &parentDir );
+      Q_INVOKABLE bool downloadProject( const QString &folderId, const QString &name, const QString &parentDir = QString() );
 
     signals:
       void busyChanged();
       void deviceNameChanged();
+      void projectsDirChanged();
+      //! A downloaded project is complete; matches LocalProjectsManager::addLocalProject.
+      void projectDownloaded( const QString &projectDir, const QString &projectName );
       /**
        * \a result: ok, error, project_dir, uploaded, downloaded, deleted, skipped, conflicts (list of
        * conflict copy paths), matching the `sync_project` tool's result.
@@ -86,7 +95,9 @@ namespace ufield
       void projectsListed( const QVariantList &projects, const QString &error );
 
     private:
-      bool start( std::function<void()> work );
+      bool startSync( const QString &projectDir, SyncDirection direction, bool download );
+      //! Runs \a work on a new thread; the function it returns runs on this object's thread when done.
+      bool start( std::function<std::function<void()>()> work );
       void finish();
       QString conflictSuffix() const;
       GoogleDriveProvider::TokenProvider tokens() const;
@@ -94,6 +105,7 @@ namespace ufield
       TokenProviderFactory mTokens;
       QUrl mApiBase;
       QString mDeviceName;
+      QString mProjectsDir;
       bool mBusy = false;
   };
 

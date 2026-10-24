@@ -31,7 +31,7 @@ Keep this list complete; it is the checklist for every upstream merge.
 | `app/qml/main.qml` | Window title `μField` | Rebrand |
 | `CMakeLists.txt` | `add_subdirectory(ufield/storage)` | Builds μField's Drive sync library with the app |
 | `app/CMakeLists.txt` | Links `ufield_sync` into the app | Drive sync (ADR 0004) |
-| `app/main.cpp` | Includes `drivesync.h`; registers `DriveSync` for QML (`import ufield 1.0`) | Drive sync UI |
+| `app/main.cpp` | Includes `drivesync.h`; creates `DriveSync` as `__ufieldDriveSync`, its downloads added to `LocalProjectsManager` | Drive sync UI and tools |
 | `cmake_templates/build.gradle.in` | `play-services-auth` dependency | Google sign-in and Drive authorisation (AuthorizationClient) |
 | `cmake_templates/AndroidManifest.xml.in` | `fi.biomitta.ufield.DriveAuthActivity` | Shows Google's consent screen without changing `MMActivity` |
 

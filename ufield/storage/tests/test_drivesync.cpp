@@ -87,8 +87,13 @@ class TestDriveSync : public QObject
       QCOMPARE( projects.at( 0 ).toMap().value( "name" ).toString(), QStringLiteral( "Pellot 2026" ) );
       QCOMPARE( projects.at( 0 ).toMap().value( "folder_id" ).toString(), folder );
 
-      QVERIFY( b->downloadProject( folder, "Pellot 2026", phoneB.path() ) );
+      b->setProjectsDir( phoneB.path() );
+      QSignalSpy downloaded( b.get(), &DriveSync::projectDownloaded );
+      QVERIFY( b->downloadProject( folder, "Pellot 2026" ) );
       const QVariantMap rb = waitSync( *b );
+      QCOMPARE( downloaded.size(), 1 );
+      QCOMPARE( downloaded.at( 0 ).at( 0 ).toString(), phoneB.filePath( "Pellot 2026" ) );
+      QCOMPARE( downloaded.at( 0 ).at( 1 ).toString(), QStringLiteral( "Pellot 2026" ) );
       QVERIFY2( rb.value( "ok" ).toBool(), qPrintable( rb.value( "error" ).toString() ) );
       QCOMPARE( rb.value( "downloaded" ).toInt(), 2 );
       QFile photo( phoneB.filePath( "Pellot 2026/media/p1.jpg" ) );
@@ -113,6 +118,18 @@ class TestDriveSync : public QObject
       QCOMPARE( drive->requests.filter( QRegularExpression( "^POST /drive/v3/files$" ) ).size(), 3 );
     }
 
+    void destroyedWhileSyncing()
+    {
+      QTemporaryDir dir;
+      write( dir.filePath( "p/a.md" ), "a" );
+      {
+        auto c = controller();
+        QVERIFY( c->syncProject( dir.filePath( "p" ) ) );
+      } // destroyed with the worker still running: its result must be dropped, not delivered
+      QTest::qWait( 500 );
+      QVERIFY( !drive->idOf( "a.md", drive->idOf( "p", drive->idOf( DriveSync::appFolderName(), "root" ) ) ).isEmpty() );
+    }
+
     void invalidArguments()
     {
       QTemporaryDir dir;
@@ -121,6 +138,7 @@ class TestDriveSync : public QObject
       QVERIFY( !c->syncProject( dir.filePath( "missing" ) ) );
       QVERIFY( !c->downloadProject( "f1", "../escape", dir.path() ) );
       QVERIFY( !c->downloadProject( "", "x", dir.path() ) );
+      QVERIFY( !c->downloadProject( "f1", "x" ) ); // no projectsDir set
       QVERIFY( !c->busy() );
     }
 
@@ -132,6 +150,8 @@ class TestDriveSync : public QObject
       const QVariantMap r = waitSync( c );
       QVERIFY( !r.value( "ok" ).toBool() );
       QCOMPARE( r.value( "error" ).toString(), QStringLiteral( "cancelled" ) );
+      // a sync that never ran leaves nothing in the result counts
+      QCOMPARE( r.value( "uploaded" ).toInt(), 0 );
       QVERIFY( DriveSync::linkedFolderId( dir.path() ).isEmpty() );
     }
 };
