@@ -1,8 +1,9 @@
 # μField storage: Google Drive sync (ADR 0004).
 #   ufield_syncplan  sync planning rules, pure C++17
-#   ufield_sync      Qt layer: project scan, .ufield/sync.json, SyncEngine
+#   ufield_sync      Qt layer: project scan, .ufield/sync.json, SyncEngine,
+#                    GoogleDriveProvider (Drive REST v3)
 #
-# Standalone build for the unit tests (Qt 6 Core and Test for the Qt layer):
+# Standalone build for the unit tests (Qt 6 Core, Network and Test for the Qt layer):
 #   cmake -S ufield/storage -B build/storage && cmake --build build/storage && ctest --test-dir build/storage
 cmake_minimum_required(VERSION 3.16)
 project(ufield_storage LANGUAGES CXX)
@@ -18,10 +19,10 @@ add_library(ufield_syncplan STATIC syncplan.cpp)
 target_include_directories(ufield_syncplan PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_options(ufield_syncplan PRIVATE ${UFIELD_WARNINGS})
 
-find_package(Qt6 COMPONENTS Core)
+find_package(Qt6 COMPONENTS Core Network)
 if(Qt6_FOUND)
-  add_library(ufield_sync STATIC syncengine.cpp)
-  target_link_libraries(ufield_sync PUBLIC ufield_syncplan Qt6::Core)
+  add_library(ufield_sync STATIC syncengine.cpp googledriveprovider.cpp)
+  target_link_libraries(ufield_sync PUBLIC ufield_syncplan Qt6::Core Qt6::Network)
   target_compile_options(ufield_sync PRIVATE ${UFIELD_WARNINGS})
 endif()
 
@@ -37,5 +38,9 @@ if(PROJECT_IS_TOP_LEVEL)
     add_executable(test_syncengine tests/test_syncengine.cpp)
     target_link_libraries(test_syncengine PRIVATE ufield_sync Qt6::Test)
     add_test(NAME syncengine COMMAND test_syncengine)
+
+    add_executable(test_googledrive tests/test_googledrive.cpp)
+    target_link_libraries(test_googledrive PRIVATE ufield_sync Qt6::Test)
+    add_test(NAME googledrive COMMAND test_googledrive)
   endif()
 endif()

@@ -31,4 +31,4 @@ jobs:
           cmake --build build
           ctest --test-dir build --output-on-failure
           # both suites must have been built
-          test -x build/test_syncplan && test -x build/test_syncengine
+          test -x build/test_syncplan && test -x build/test_syncengine && test -x build/test_googledrive
