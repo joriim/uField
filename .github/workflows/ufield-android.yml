@@ -89,7 +89,8 @@ jobs:
             bison flex gperf autopoint autoconf-archive libtool gettext nasm \
             '^libxcb.*-dev' libx11-xcb-dev libegl1-mesa-dev libglu1-mesa-dev libxrender-dev \
             libxi-dev libxkbcommon-dev libxkbcommon-x11-dev libxrandr-dev libltdl-dev \
-            libwayland-dev libwayland-egl-backend-dev wayland-protocols mono-complete
+            libwayland-dev libwayland-egl-backend-dev wayland-protocols mono-complete \
+            libsm-dev libice-dev # host qtbase forces xcb_sm (X11 session management)
 
       - name: Install CMake and Ninja
         uses: lukka/get-cmake@latest
