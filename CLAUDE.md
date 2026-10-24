@@ -4,15 +4,15 @@ Guidance for Claude Code when working in this repository. Read this fully before
 
 ## What this is
 
-μField is an Android field-data app forked from **Mergin Maps mobile** (GPL-3.0), published on Google Play by Biomitta Oy. Users collect text, numbers, photos and video with location and metadata, work against their own QGIS project, store data in their own storage (local folder, Google Drive, OneDrive), and view open map layers (Ruokavirasto, SYKE, MML, GTK, Luke, Metsäkeskus, FMI).
+μField is an Android field-data app forked from **Mergin Maps mobile** (GPL-2.0-or-later; μField is GPL-3.0; see `docs/upstream.md`), published on Google Play by Biomitta Oy. Users collect text, numbers, photos and video with location and metadata, work against their own QGIS project, store data in their own storage (local folder, Google Drive, OneDrive), and view open map layers (Ruokavirasto, SYKE, MML, GTK, Luke, Metsäkeskus, FMI).
 
 It is designed **API-first**: every user action is a *tool* defined in `schema/tools.json`. The same tool definitions drive the app UI, the MCP servers (Claude and other MCP clients), and the in-app voice agent, which uses Claude.
 
 ## Non-negotiable rules
 
 1. **Tool parity.** Any new user-facing capability must first be added to `schema/tools.json`, then implemented in `core/`, then wired to the UI, MCP server and voice agent. A UI action with no matching tool is a bug. Never implement business logic only in QML. **Exception: secrets.** Entering, viewing or exporting a credential is native-UI only; no tool accepts a secret, and tools refer to stored credentials only by `auth_config_id` (`docs/adr/0002-credentials.md`).
-2. **Stay close to upstream.** Put μField code in `ufield/` modules. Change upstream files (`app/`, `core/` from Mergin) only when unavoidable, keep the diff minimal, and mark it with `// UFIELD:` plus a one-line reason. We rebase on upstream regularly.
-3. **GPL-3.0.** Keep upstream license headers. All code in this repo is GPL-3.0. Do not add dependencies with incompatible licenses (check before adding; record them in `docs/dependencies.md`).
+2. **Stay close to upstream.** Put μField code in `ufield/` modules. Change upstream files (`app/`, `core/` from Mergin) only when unavoidable, keep the diff minimal, and mark it with `// UFIELD:` plus a one-line reason, and list it in `docs/upstream.md`. Upstream releases come in as merges (not rebases), see `docs/upstream.md`.
+3. **GPL-3.0.** Keep upstream license headers (GPL-2.0-or-later). μField code and the combined app are GPL-3.0. Do not add dependencies with incompatible licenses (check before adding; record them in `docs/dependencies.md`).
 4. **No Mergin branding.** Use the μField name, icons and package ID `fi.biomitta.ufield`. Don't reintroduce Mergin trademarks in UI strings or assets. The display name is written with the Greek letter mu, `μField` (U+03BC, not the micro sign U+00B5); identifiers, paths, package IDs, STAC prefixes and URLs use ASCII `ufield`.
 5. **Capture fidelity.** Never recompress or strip metadata from originals. Every photo/video capture stores: full EXIF, GNSS fix (lat, lon, alt, horizontal/vertical accuracy, fix type incl. RTK status, satellite count), device orientation (azimuth, pitch, roll), timestamp (UTC), and for video a per-frame pose/GNSS track. These feed future ortho, 3DGS and super-resolution products.
 6. **Provenance and licence on every asset.** Each asset (capture, imported layer, product) is a STAC item with `ufield:visibility` (`proprietary` | `public`), `license`, and `ufield:provenance` (input asset IDs + recipe). Never merge proprietary and public data into an output without recording both.
@@ -57,6 +57,7 @@ It is designed **API-first**: every user action is a *tool* defined in `schema/t
 - **Layers** come from `config/layers.yaml` (type, url, crs, license, attribution, auth). `scripts/check_layers.py` checks every endpoint in CI.
 - **Target areas** (`select_target_area`) are what the Farm Pack and products are built for: saved areas made of field parcels (peltolohkotunnus, Ruokavirasto), properties (kiinteistötunnus, MML) or map picks, each classed as field, forest, other green, brownfield or urban green. See `docs/adr/0001-target-areas.md`.
 - **Farm Pack** is the one product built in the MVP (`request_farm_pack`): server-side fetch of MML ortho/DEM (WCS, tiled at 2 × 2 km), a CDSE openEO Sentinel-2 season series and clipped open vector layers, delivered as GeoPackage + COGs + STAC. Sources and limits: `docs/layer-sources.md`.
+- **Upstream:** imported Mergin Maps mobile release and every change to upstream files: `docs/upstream.md`.
 - **Other products** (orthomosaic, 3DGS, super-resolution) are **not implemented in the MVP**. `request_product` validates input, records a `ProductJob` with status `unavailable`, and returns it. Don't build workers until asked.
 
 ## Repo layout
@@ -97,7 +98,11 @@ docs/                ADRs (docs/adr/NNNN-title.md), play-policy.md, dependencies
 
 ## MVP scope
 
-In: fork + rebrand, CI build, Google sign-in, Local + Google Drive storage, observations (text, number, photo, video) with full capture metadata, open QGIS project, layer registry with open layers, target areas (peltolohkotunnus, kiinteistötunnus, map pick), Farm Pack, STAC catalog, tool schema, MCP server (remote and local, usable from Claude), point notes (given / AI Markdown) and analysis tools, voice notes (Finnish + English) with background cloud speech-to-text, voice agent, signed AAB release to Play internal track.
+**The MVP is a standalone Android app plus Google Drive sync**: everything works on the phone without ufield-server.
+
+In: fork + rebrand, CI build, signed AAB to the Play internal track; Local and Google Drive storage (Google sign-in on the device); open QGIS projects; observations (text, number, photo, video) with full capture metadata; open layers that need no key, plus MML layers with a key the user enters on the device (ADR 0002 §5); point notes (given and AI Markdown) and the STAC catalog on the device; voice notes recorded with audio kept (transcription status `pending` until the server exists); the tool schema and ToolDispatcher in the app; `ufield-mcp` for Claude Desktop/Code on a synced project folder.
+
+After the MVP (needs ufield-server): Farm Pack and target areas, the authenticated layer proxy with Biomitta's MML key, cloud speech-to-text, the voice agent (`/agent`), the remote MCP server.
 
 Out (interfaces only): product generation (ortho, 3DGS, super-resolution), OneDrive, MerginCE sync, multi-user collaboration.
 

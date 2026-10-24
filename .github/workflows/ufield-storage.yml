@@ -1,0 +1,58 @@
+# μField library tests: Drive sync (ufield/storage) and translations
+# (ufield/i18n, checked against ufield/qml). Ubuntu's Qt 6 is enough for these.
+name: μField libraries
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'ufield/storage/**'
+      - 'ufield/i18n/**'
+      - 'ufield/qml/**'
+      - 'ufield/tools/**'
+      - 'schema/**'
+      - 'scripts/update_ufield_i18n.sh'
+      - '.github/workflows/ufield-storage.yml'
+  pull_request:
+    paths:
+      - 'ufield/storage/**'
+      - 'ufield/i18n/**'
+      - 'ufield/qml/**'
+      - 'ufield/tools/**'
+      - 'schema/**'
+      - 'scripts/update_ufield_i18n.sh'
+      - '.github/workflows/ufield-storage.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Qt 6
+        run: sudo apt-get update -y && sudo apt-get install -y --no-install-recommends qt6-base-dev qt6-l10n-tools libsqlite3-dev
+      - name: Build and test (with sanitizers)
+        run: |
+          cmake -S ufield/storage -B build -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-sanitize-recover=all"
+          cmake --build build
+          ctest --test-dir build --output-on-failure
+          # every suite must have been built (Qt found)
+          test -x build/test_syncplan && test -x build/test_syncengine && test -x build/test_googledrive && test -x build/test_drivesync
+      - name: ToolDispatcher (same results as the Python validator on schema/tests/cases.json) and storage tools
+        run: |
+          cmake -S ufield/tools -B build-tools -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-sanitize-recover=all"
+          cmake --build build-tools
+          ctest --test-dir build-tools --output-on-failure
+          test -x build-tools/test_toolschema && test -x build-tools/test_storagetools
+      - name: Translations (complete and up to date with ufield/qml, ufield/storage and ufield/tools)
+        run: |
+          scripts/update_ufield_i18n.sh /usr/lib/qt6/bin
+          git diff --exit-code -- ufield/i18n/ufield_fi.ts || { echo "::error::Run scripts/update_ufield_i18n.sh and commit ufield/i18n"; exit 1; }
+          cmake -S ufield/i18n -B build-i18n
+          cmake --build build-i18n
+          ctest --test-dir build-i18n --output-on-failure

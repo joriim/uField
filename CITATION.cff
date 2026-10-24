@@ -1,0 +1,9 @@
+cff-version: 2026.4.1
+message: "If you use this software, please cite it as below."
+title: "Mergin Maps Mobile App"
+type: software
+authors:
+  - name: "Lutra Consulting Ltd."
+url: "https://merginmaps.com"
+repository-code: "https://github.com/MerginMaps/mobile"
+license: GPL-2.0

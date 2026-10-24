@@ -1,0 +1,185 @@
+name: win64 Build
+
+on:
+  push:
+    paths:
+    - 'vcpkg/**'
+    - 'vcpkg.json'
+    - 'VCPKG_BASELINE'
+    - 'app/**'
+    - 'core/**'
+    - 'scripts/**'
+    - 'cmake/**'
+    - 'cmake_templates/**'
+    - 'CMakeLists.txt'
+    - '.github/workflows/win.yml'
+
+  release:
+    types:
+      - published
+
+concurrency:
+  group: ci-${{github.ref}}-windows
+  cancel-in-progress: true
+
+jobs:
+  win64_build:
+    if: ( github.repository == 'MerginMaps/mobile' ) && (!contains(github.event.head_commit.message, 'Translate '))
+    runs-on: windows-2025
+
+    env:
+      # Visual Studio Enterprise 2026 - 18.6.11819.183
+      VS_INSTALL_DIR: "C:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise"
+      # This is required by windeployqt script - do not remove it breaks packaging the executable
+      VCINSTALLDIR: "C:\\Program Files\\Microsoft Visual Studio\\18\\Enterprise\\VC\\"
+      CMAKE_VERSION: '4.3.2'
+      VCPKG_BINARY_SOURCES: 'clear;nuget,GitHub,readwrite'
+      TRIPLET: x64-windows
+      CMAKE_GENERATOR: "Visual Studio 18 2026" # see https://github.com/actions/runner-images/blob/main/images/windows/Windows2025-VS2026-Readme.md
+      CMAKE_ARCH: "x64"
+      VCPKG_ROOT: "C:/vcpkg-root" # Looks like there is more space on C: than on D: drive (~14GB)
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          path: mm
+ 
+      - name: Prepare vars
+        id: vars
+        shell: bash
+        run: |
+          WORKSPACE_DIR=$(cygpath -m "${{ github.workspace }}")
+          echo "WORKSPACE_DIR=$WORKSPACE_DIR" >> $GITHUB_OUTPUT
+          echo "WORKSPACE_DIR: $WORKSPACE_DIR"
+
+      - name: Install CMake and Ninja
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: ${{ env.CMAKE_VERSION }}
+
+      - name: Install NSIS
+        shell: cmd
+        run: |
+            choco install nsis
+
+      - name: Extract Mergin API_KEY
+        shell: cmd
+        env:
+          MERGINSECRETS_DECRYPT_KEY: ${{ secrets.MERGINSECRETS_DECRYPT_KEY }}
+        run: |
+          cd mm/core/
+          openssl aes-256-cbc -d  -in merginsecrets.cpp.enc  -out merginsecrets.cpp  -k "%MERGINSECRETS_DECRYPT_KEY%" -md md5
+          
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ccache-${{ env.TRIPLET }}
+          max-size: 200M
+
+      - name: Get vcpkg
+        shell: bash
+        run: |
+          mkdir -p "${{ env.VCPKG_ROOT }}"
+          cd "${{ env.VCPKG_ROOT }}"
+          git init
+          git remote add origin https://github.com/microsoft/vcpkg.git
+          git pull origin master
+          VCPKG_TAG=`cat ${{ steps.vars.outputs.WORKSPACE_DIR }}/mm/VCPKG_BASELINE`
+          echo "using VCPKG_TAG ${VCPKG_TAG}"
+          git checkout ${VCPKG_TAG}
+
+      - name: Install vcpkg
+        shell: cmd
+        run: |
+          CALL "C:\vcpkg-root\bootstrap-vcpkg.bat"
+
+      - name: Setup NuGet Credentials
+        shell: pwsh
+        run: |
+          .$(${{ env.VCPKG_ROOT }}/vcpkg fetch nuget) `
+            sources add `
+            -Source "https://nuget.pkg.github.com/merginmaps/index.json" `
+            -StorePasswordInClearText `
+            -Name GitHub `
+            -UserName "mergin-maps-bot" `
+            -Password "${{ secrets.MERGIN_MAPS_BOT_GITHUB_TOKEN }}"
+          .$(${{ env.VCPKG_ROOT }}/vcpkg fetch nuget) `
+            setapikey "${{ secrets.MERGIN_MAPS_BOT_GITHUB_TOKEN }}" `
+            -Source "https://nuget.pkg.github.com/merginmaps/index.json"
+
+      - name: Calculate build number
+        shell: bash
+        run: |
+            BUILD_NUM=$GITHUB_RUN_NUMBER$GITHUB_RUN_ATTEMPT
+            echo "MM_VERSION_CODE=${BUILD_NUM}" >> $GITHUB_ENV
+            echo "Version code: ${BUILD_NUM}"
+
+      - name: Setup compiler
+        shell: cmd
+        run: |
+            CALL "${{ env.VS_INSTALL_DIR }}\Common7\Tools\VsDevCmd.bat" -arch=${{ env.CMAKE_ARCH }}
+
+      - name: Configure app
+        shell: cmd
+        run: |
+          mkdir install-mm -ea 0
+          mkdir build-mm -ea 0
+          cd build-mm
+
+          set PATH=${{ env.VCPKG_ROOT }};%PATH%
+
+          cmake ^
+             -DCMAKE_BUILD_TYPE=Release ^
+             -DCMAKE_INSTALL_PREFIX:PATH=${{ steps.vars.outputs.WORKSPACE_DIR }}/install-mm ^
+             -DCMAKE_TOOLCHAIN_FILE:PATH="${{ env.VCPKG_ROOT }}/scripts/buildsystems/vcpkg.cmake" ^
+             -G "${{ env.CMAKE_GENERATOR }}" ^
+             -A ${{ env.CMAKE_ARCH }} ^
+             -DVCPKG_TARGET_TRIPLET=${{ env.TRIPLET }} ^
+             -DVCPKG_INSTALL_OPTIONS="--x-buildtrees-root=C:/src" ^
+             -DUSE_MM_SERVER_API_KEY=TRUE ^
+             -DUSE_KEYCHAIN=No ^
+             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache ^
+             -S ${{ steps.vars.outputs.WORKSPACE_DIR }}/mm ^
+             -B .
+
+      - name: Build app
+        shell: cmd
+        run: |
+          cd build-mm
+
+          set PATH=${{ env.VCPKG_ROOT }};%PATH%
+
+          cmake --build ${{ github.workspace }}\build-mm --config Release --verbose
+
+          IF NOT EXIST Release\MerginMaps.exe (echo err_MERGINMAPS_BUILD & exit /b 1)
+
+      - name: Install app
+        shell: cmd
+        run: |
+          cd build-mm
+          cmake --install ${{ github.workspace }}\build-mm --config Release --verbose 
+
+          mkdir C:\mm-package
+          mkdir C:\mm-package\stage
+          robocopy ${{ steps.vars.outputs.WORKSPACE_DIR }}/install-mm C:\mm-package\stage /E /NFL
+          dir C:\mm-package\stage
+
+      - name: Get TimeStamp
+        id: time
+        uses: josStorer/get-current-time@v2.0.2
+        with:
+          format: 'YYYYMMDD'
+
+      - name: Create package
+        shell: cmd
+        run: |
+          "C:\Program Files (x86)\NSIS\makensis.exe" mm\scripts\MM_win.nsi
+          xcopy C:\mm-package\merginmaps-app-win-x86_64.exe mergin-maps-mobile-win64-${{ steps.time.outputs.formattedTime }}-${{ github.run_number }}.exe* /Y
+
+      - name: Upload Sdk in Artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          path: mergin-maps-mobile-win64-${{ steps.time.outputs.formattedTime }}-${{ github.run_number }}.exe
+          name: Mergin Maps ${{ env.MM_VERSION_CODE }} win64
+          if-no-files-found: error

@@ -1,6 +1,6 @@
 # Roadmap to GitHub and Google Play — μField
 
-Status: draft, 2026-09-25. Scope follows the MVP in `CLAUDE.md`. Store rules and dates change often; every item marked *(verify)* must be checked against the current Play Console and Google documentation when that phase starts.
+Status: draft, 2026-09-25. Scope update 2026-10-21: the MVP is the standalone Android app plus Google Drive sync (`CLAUDE.md`, MVP scope); phases 3, 5 and the server parts of 6 come after the MVP. Scope follows the MVP in `CLAUDE.md`. Store rules and dates change often; every item marked *(verify)* must be checked against the current Play Console and Google documentation when that phase starts.
 
 Today the repository holds only design documents: `CLAUDE.md`, the layer registry, the tool schema and two ADRs. There is no app or server code yet.
 
@@ -62,11 +62,11 @@ Several of these have lead times of days to weeks, so start them first.
 ## Phase 1 — Fork, rebrand, build pipeline
 
 **Repository**
-- [ ] Bring upstream in with history: add `MerginMaps/mobile` as the `upstream` remote and merge its default branch into `main`, keeping these documents on top. Record the upstream commit in `docs/upstream.md`, with how to rebase.
+- [x] Bring upstream in with history: release `2026.4.1` merged (not rebased), recorded in `docs/upstream.md` with how to take the next release.
 - [ ] Before going public: run secret scanning over the whole history, enable GitHub secret scanning and push protection.
 - [ ] Add `LICENSE` (GPL-3.0, kept from upstream), `README.md` (what μField is, how it relates to Mergin Maps, build steps), `CONTRIBUTING.md`, `SECURITY.md` (how to report vulnerabilities), `docs/dependencies.md`.
 - [ ] Branch protection on `main`: PRs only, required CI checks.
-- [ ] Make the repository public.
+- [x] Make the repository public.
 
 **Rebrand** (rule 2 and 4: minimal, marked `// UFIELD:` changes)
 - [ ] Package id `fi.biomitta.ufield`, app name, icons, splash, About screen with GPL notice, upstream credit and source link.
@@ -74,7 +74,7 @@ Several of these have lead times of days to weeks, so start them first.
 - [ ] Finnish and English translations of every changed string.
 
 **Build and release pipeline**
-- [ ] GitHub Actions: Android build with Qt 6, NDK and vcpkg as upstream does; cache vcpkg. Build AAB for arm64-v8a and armeabi-v7a (x86_64 for emulator tests).
+- [ ] GitHub Actions: Android build with Qt 6, NDK and vcpkg as upstream does; cache vcpkg (`ufield-android.yml`: arm64-v8a APK on Linux, vcpkg cache in GitHub Packages). Still to add: AAB, armeabi-v7a, x86_64 for emulator tests.
 - [ ] Target API level as required by Play at release time (API 36 in `CLAUDE.md`) *(verify)*.
 - [ ] **16 KB page size:** Play requires native libraries aligned for 16 KB pages for apps targeting Android 15+ *(verify)*. Every native library (Qt, QGIS, GDAL, PROJ, vcpkg ports) must pass the alignment check in CI; fail the build otherwise.
 - [ ] Play App Signing enrolled; upload key and passwords in GitHub Actions secrets (ADR 0002).
@@ -117,10 +117,16 @@ Several of these have lead times of days to weeks, so start them first.
 
 ## Phase 4 — Google Drive storage
 
-- [ ] Google sign-in and authorisation on Android with `drive.file` only (rule 8). Tokens in the Android Keystore via qtkeychain.
-- [ ] Picker flow so users can open existing QGIS projects: `drive.file` only sees files the app created or the user picked.
-- [ ] `sync_project`: `changes_since`, conflict policy, resumable uploads for video, offline queue.
-- [ ] Media originals uploaded unmodified (rule 5).
+Design: ADR 0004 (app folder `μField/` in My Drive, no stored tokens, keep-both conflicts).
+
+- [ ] Google sign-in and authorisation on Android with `drive.file` only (rule 8): written (`DriveAuth.java`, Play services AuthorizationClient; Play services keeps the grant, nothing is stored). Needs the Cloud project and a stable signing key to test on a device.
+- [x] Sync engine: plan, conflicts (keep both), deletes to Drive's trash, resumable uploads, checksum-checked downloads, resume after interruption; push, pull and both (`ufield/storage`, unit-tested against a fake Drive API).
+- [x] Media originals uploaded byte-for-byte (rule 5).
+- [x] Drive tab in the project list: sync the open project, list and download Drive projects (Finnish and English).
+- [ ] `sync_project` and `list_projects(google_drive)` through the app's ToolDispatcher.
+- [ ] Getting existing QGIS projects in: `ufield-mcp drive push` from a computer, and zip import (ADR 0004 §1); confirm desktop-client files are visible under `drive.file`.
+- [x] GeoPackages (and other SQLite files) are checkpointed before a sync, so edits in their -wal files are uploaded; one that is being written to is left for the next sync. The open project reloads when a sync changed its files.
+- [ ] Sync after saving when online (auto-sync).
 
 **Exit check:** a project edited offline on one phone syncs through Drive to QGIS desktop and back with no data or metadata loss.
 
