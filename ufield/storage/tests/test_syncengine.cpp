@@ -16,7 +16,11 @@
 #include <QTemporaryDir>
 #include <QTest>
 
+#include <functional>
+
 #include <map>
+
+#include <sqlite3.h>
 
 #include "syncengine.h"
 
@@ -35,6 +39,7 @@ class FakeRemote : public RemoteStore
     int nextId = 1;
     int uploads = 0;
     int failAfterUploads = -1; //!< fail the upload after this many have succeeded
+    std::function<void( const QString &path )> beforeUpload; //!< e.g. to change the file mid-upload
 
     static std::string md5( const QByteArray &data ) { return QCryptographicHash::hash( data, QCryptographicHash::Md5 ).toHex().toStdString(); }
 
@@ -86,6 +91,11 @@ class FakeRemote : public RemoteStore
       QFile f( localFile );
       if ( !f.open( QIODevice::ReadOnly ) )
         return false;
+      if ( beforeUpload )
+      {
+        beforeUpload( path );
+        f.seek( 0 );
+      }
       QString id = remoteId;
       if ( id.isEmpty() )
         id = QStringLiteral( "id%1" ).arg( nextId++ );
@@ -307,6 +317,89 @@ class TestSyncEngine : public QObject
       QCOMPARE( read( a, "shared.md" ), QByteArray( "edit on a" ) );
       QCOMPARE( remote.content( "shared.md" ), QByteArray( "edit on b" ) );
       QCOMPARE( run( a, remote ).conflictCopies.size(), 1 );
+    }
+
+    // An open database in WAL mode whose edits are only in the -wal file, as QGIS leaves it.
+    static sqlite3 *openWithPendingWal( const QString &path )
+    {
+      QDir().mkpath( QFileInfo( path ).path() );
+      sqlite3 *db = nullptr;
+      sqlite3_open( QFile::encodeName( path ).constData(), &db );
+      sqlite3_exec( db, "PRAGMA journal_mode=WAL; PRAGMA wal_autocheckpoint=0;"
+                        "CREATE TABLE obs(id INTEGER PRIMARY KEY, note TEXT); INSERT INTO obs(note) VALUES('kept');",
+                    nullptr, nullptr, nullptr );
+      return db;
+    }
+
+    static int rowsIn( const QByteArray &dbContent )
+    {
+      QTemporaryDir dir;
+      const QString path = dir.filePath( "copy.gpkg" );
+      QFile f( path );
+      if ( !f.open( QIODevice::WriteOnly ) )
+        return -1;
+      f.write( dbContent );
+      f.close();
+      sqlite3 *db = nullptr;
+      sqlite3_open( QFile::encodeName( path ).constData(), &db );
+      int rows = -1;
+      sqlite3_exec( db, "SELECT count(*) FROM obs", []( void *out, int, char **values, char ** ) {
+        *static_cast<int *>( out ) = atoi( values[0] );
+        return 0; }, &rows, nullptr );
+      sqlite3_close( db );
+      return rows;
+    }
+
+    void walEditsAreUploaded()
+    {
+      QTemporaryDir a;
+      FakeRemote remote;
+      sqlite3 *qgis = openWithPendingWal( a.filePath( "data/obs.gpkg" ) );
+      QVERIFY( QFileInfo( a.filePath( "data/obs.gpkg-wal" ) ).size() > 0 );
+
+      const SyncResult r = run( a, remote );
+      QVERIFY2( r.ok, qPrintable( r.error ) );
+      QVERIFY( r.busyFiles.isEmpty() );
+      QCOMPARE( rowsIn( remote.content( "data/obs.gpkg" ) ), 1 ); // the edit made it into the uploaded file
+      QCOMPARE( QFileInfo( a.filePath( "data/obs.gpkg-wal" ) ).size(), 0 );
+      QVERIFY( remote.idOf( "data/obs.gpkg-wal" ).isEmpty() );
+      sqlite3_close( qgis );
+    }
+
+    void busyDatabaseIsLeftAlone()
+    {
+      QTemporaryDir a;
+      FakeRemote remote;
+      sqlite3 *qgis = openWithPendingWal( a.filePath( "obs.gpkg" ) );
+      write( a, "notes.md", "n" );
+      sqlite3_exec( qgis, "BEGIN IMMEDIATE; INSERT INTO obs(note) VALUES('in progress');", nullptr, nullptr, nullptr );
+
+      const SyncResult r = run( a, remote );
+      QVERIFY2( r.ok, qPrintable( r.error ) );
+      QCOMPARE( r.busyFiles, QStringList { "obs.gpkg" } );
+      QCOMPARE( r.uploaded, 1 ); // notes.md only
+      QVERIFY( remote.idOf( "obs.gpkg" ).isEmpty() );
+
+      sqlite3_exec( qgis, "COMMIT;", nullptr, nullptr, nullptr );
+      sqlite3_close( qgis );
+      const SyncResult later = run( a, remote );
+      QVERIFY( later.ok );
+      QVERIFY( later.busyFiles.isEmpty() );
+      QCOMPARE( rowsIn( remote.content( "obs.gpkg" ) ), 2 );
+    }
+
+    void changedDuringUploadIsNotRecorded()
+    {
+      QTemporaryDir a;
+      FakeRemote remote;
+      write( a, "v.mp4", "first" );
+      remote.beforeUpload = [&a]( const QString & ) { write( a, "v.mp4", "edited mid-upload" ); };
+      const SyncResult r = run( a, remote );
+      QVERIFY( !r.ok );
+      QVERIFY( r.error.contains( "changed while it was uploaded" ) );
+      remote.beforeUpload = nullptr;
+      QVERIFY( run( a, remote ).ok );
+      QCOMPARE( remote.content( "v.mp4" ), QByteArray( "edited mid-upload" ) );
     }
 
     void invalidStateIsAnError()

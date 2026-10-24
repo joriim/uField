@@ -9,6 +9,8 @@
 
 #include "syncengine.h"
 
+#include "gpkgcheckpoint.h"
+
 #include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDateTime>
@@ -184,6 +186,7 @@ namespace ufield
   SyncResult SyncEngine::sync( const QString &conflictSuffix, SyncDirection direction )
   {
     SyncResult result;
+    checkpointDatabases( mDir, result.busyFiles );
     if ( !SyncState::load( mDir, mSynced, result.error ) || !scanProject( mDir, mSynced, mLocal, mMtimes, result.error ) ||
          !mRemote.list( mRemoteFiles, result.error ) )
       return result;
@@ -192,7 +195,8 @@ namespace ufield
     for ( const sync::Action &action : plan )
     {
       // A skipped action leaves its sync record as it was, so the next sync plans it again.
-      if ( !allowed( action.type, direction ) )
+      // A busy database is neither uploaded (its -wal may hold edits) nor replaced.
+      if ( !allowed( action.type, direction ) || result.busyFiles.contains( qs( action.path ) ) )
       {
         ++result.skipped;
         continue;
@@ -249,6 +253,13 @@ namespace ufield
     if ( uploaded.md5.empty() )
     {
       error = QCoreApplication::translate( "ufield", "The remote returned no checksum for %1" ).arg( qs( path ) );
+      return false;
+    }
+    const auto scanned = mLocal.find( path );
+    if ( scanned != mLocal.end() && scanned->second.md5 != uploaded.md5 )
+    {
+      // Written to while uploading: the remote copy may be torn. Not recorded, so the next sync uploads it again.
+      error = QCoreApplication::translate( "ufield", "%1 changed while it was uploaded; sync again" ).arg( qs( path ) );
       return false;
     }
     // If the file changed during the upload, its mtime changed too, so the next scan rehashes it.

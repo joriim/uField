@@ -125,7 +125,8 @@ Design: ADR 0004 (app folder `μField/` in My Drive, no stored tokens, keep-both
 - [x] Drive tab in the project list: sync the open project, list and download Drive projects (Finnish and English).
 - [ ] `sync_project` and `list_projects(google_drive)` through the app's ToolDispatcher.
 - [ ] Getting existing QGIS projects in: `ufield-mcp drive push` from a computer, and zip import (ADR 0004 §1); confirm desktop-client files are visible under `drive.file`.
-- [ ] Checkpoint and close GeoPackages before a sync; sync after saving when online.
+- [x] GeoPackages (and other SQLite files) are checkpointed before a sync, so edits in their -wal files are uploaded; one that is being written to is left for the next sync. The open project reloads when a sync changed its files.
+- [ ] Sync after saving when online (auto-sync).
 
 **Exit check:** a project edited offline on one phone syncs through Drive to QGIS desktop and back with no data or metadata loss.
 

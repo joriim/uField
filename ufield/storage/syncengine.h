@@ -56,13 +56,14 @@ namespace ufield
     int downloaded = 0;
     int deleted = 0;          //!< local and remote deletes
     QStringList conflictCopies; //!< local files renamed to keep both versions
-    int skipped = 0;            //!< changes left for a later sync by a push or pull
+    int skipped = 0;            //!< changes left for a later sync (push, pull, or a busy database)
+    QStringList busyFiles;      //!< databases being written to that this sync left alone
   };
 
   /**
-   * Syncs a project folder with a remote store: scan, plan (sync::planSync), apply. Blocks;
-   * run it off the UI thread. The caller closes or checkpoints GeoPackages first so no data
-   * sits in -wal files, which are never synced.
+   * Syncs a project folder with a remote store: checkpoint databases, scan, plan
+   * (sync::planSync), apply. Blocks; run it off the UI thread. -wal files are never synced:
+   * databases are checkpointed first (checkpointDatabases), and one that is busy is skipped.
    *
    * The state is saved after every action, so a sync interrupted by a lost connection resumes
    * without redoing finished transfers. Downloads go to a temporary file in `.ufield/` and

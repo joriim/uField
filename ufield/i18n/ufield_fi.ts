@@ -27,6 +27,11 @@
         </translation>
     </message>
     <message>
+        <location line="+3"/>
+        <source>Not synced while being edited: %1. Sync again after saving.</source>
+        <translation>Ei synkronoitu, koska tiedostoa muokataan: %1. Synkronoi uudelleen tallennuksen jälkeen.</translation>
+    </message>
+    <message>
         <location line="+50"/>
         <source>Projects are kept in the μField folder of your Google Drive. μField can only see the files it created there.</source>
         <translation>Projektit tallennetaan Google Driven μField-kansioon. μField näkee siellä vain itse luomansa tiedostot.</translation>
@@ -154,7 +159,7 @@
     </message>
     <message>
         <location line="-104"/>
-        <location filename="../storage/syncengine.cpp" line="+46"/>
+        <location filename="../storage/syncengine.cpp" line="+48"/>
         <source>Cannot read %1</source>
         <translation>Tiedostoa %1 ei voi lukea</translation>
     </message>
@@ -205,7 +210,7 @@
         <translation>Synkronoinnin tilaa ei voi kirjoittaa: %1</translation>
     </message>
     <message>
-        <location line="+111"/>
+        <location line="+113"/>
         <source>Downloaded %1 does not match the remote checksum</source>
         <translation>Ladattu %1 ei vastaa etäkopion tarkistussummaa</translation>
     </message>
@@ -218,6 +223,11 @@
         <location line="+17"/>
         <source>The remote returned no checksum for %1</source>
         <translation>Etäpalvelu ei palauttanut tarkistussummaa tiedostolle %1</translation>
+    </message>
+    <message>
+        <location line="+7"/>
+        <source>%1 changed while it was uploaded; sync again</source>
+        <translation>%1 muuttui lähetyksen aikana; synkronoi uudelleen</translation>
     </message>
     <message>
         <location line="+38"/>
@@ -235,7 +245,7 @@
         <translation>Toinen Google Drive -synkronointi on käynnissä; yritä uudelleen, kun se on valmis</translation>
     </message>
     <message>
-        <location line="+50"/>
+        <location line="+51"/>
         <source>A project named %1 is already on this device</source>
         <translation>Tällä laitteella on jo projekti nimeltä %1</translation>
     </message>

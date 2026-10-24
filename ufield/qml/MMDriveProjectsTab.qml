@@ -54,6 +54,9 @@ Item {
     if ( result.conflicts.length > 0 ) {
       text += "\n" + qsTr( "%n file(s) changed on two devices; both versions were kept", "", result.conflicts.length )
     }
+    if ( result.busy_files.length > 0 ) {
+      text += "\n" + qsTr( "Not synced while being edited: %1. Sync again after saving." ).arg( result.busy_files.join( ", " ) )
+    }
     return text
   }
 
@@ -81,7 +84,7 @@ Item {
       else if ( result.error !== undefined ) {
         __notificationModel.addError( root.describe( result ) )
       }
-      else if ( result.conflicts.length > 0 ) {
+      else if ( result.conflicts.length > 0 || result.busy_files.length > 0 ) {
         __notificationModel.addWarning( root.describe( result ) )
       }
       else {

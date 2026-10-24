@@ -88,7 +88,8 @@ namespace ufield
       void projectDownloaded( const QString &projectDir, const QString &projectName );
       /**
        * \a result: ok, error, project_dir, uploaded, downloaded, deleted, skipped, conflicts (list of
-       * conflict copy paths), matching the `sync_project` tool's result.
+       * conflict copy paths), busy_files (databases in use, left for the next sync), matching the
+       * `sync_project` tool's result.
        */
       void syncFinished( const QVariantMap &result );
       //! \a projects: [{ name, folder_id }]; empty with a non-empty \a error on failure.

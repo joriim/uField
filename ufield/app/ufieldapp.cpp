@@ -49,6 +49,13 @@ namespace ufield
       return out;
     };
     registerStorageTools( *mTools, *mDrive, host );
+
+    // Files of the open project changed on disk: reload it so QGIS shows them, as upstream does after a Mergin sync.
+    QObject::connect( mDrive.get(), &DriveSync::syncFinished, &activeProject, [&activeProject]( const QVariantMap &r ) {
+      const bool changed = r.value( QStringLiteral( "downloaded" ) ).toInt() > 0 || r.value( QStringLiteral( "deleted" ) ).toInt() > 0;
+      if ( r.value( QStringLiteral( "ok" ) ).toBool() && changed )
+        activeProject.reloadProject( r.value( QStringLiteral( "project_dir" ) ).toString() );
+    } );
   }
 
   UfieldApp::~UfieldApp() = default;

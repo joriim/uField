@@ -51,6 +51,7 @@ namespace ufield
         { QStringLiteral( "deleted" ), r.value( QStringLiteral( "deleted" ) ).toInt() },
         { QStringLiteral( "skipped" ), r.value( QStringLiteral( "skipped" ) ).toInt() },
         { QStringLiteral( "conflicts" ), QJsonArray::fromStringList( r.value( QStringLiteral( "conflicts" ) ).toStringList() ) },
+        { QStringLiteral( "busy_files" ), QJsonArray::fromStringList( r.value( QStringLiteral( "busy_files" ) ).toStringList() ) },
       };
     }
 

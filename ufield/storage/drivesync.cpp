@@ -73,6 +73,7 @@ namespace ufield
         { QStringLiteral( "deleted" ), r.deleted },
         { QStringLiteral( "skipped" ), r.skipped },
         { QStringLiteral( "conflicts" ), r.conflictCopies },
+        { QStringLiteral( "busy_files" ), r.busyFiles },
       };
     }
 

@@ -45,7 +45,9 @@ On sync, for each file:
 | unchanged | deleted | delete locally |
 
 Details:
-- GeoPackages are checkpointed (WAL merged) and closed before upload. `-wal`, `-shm` and `.ufield/` are never uploaded.
+- SQLite databases (GeoPackages) with a non-empty `-wal` are checkpointed with `PRAGMA wal_checkpoint(TRUNCATE)` before the scan, so their main file holds every edit and the `-wal` is empty before any download replaces the file. QGIS may keep them open; one in a write transaction is reported busy and left out of that sync. `-wal`, `-shm` and `.ufield/` are never uploaded.
+- An upload is recorded only if Drive's md5 matches the file as scanned; a file written to during its upload is sent again next time.
+- After a sync that downloaded or deleted files of the open project, the app reloads the project.
 - Large files (video) use Drive's resumable upload. Downloads go to a temporary file and are moved into place only when complete.
 - Media originals are uploaded byte-for-byte (rule 5).
 - Notes are append-only (ADR 0003), so they practically never conflict.
