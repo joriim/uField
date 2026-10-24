@@ -1,6 +1,6 @@
 # 0004 — Google Drive sync in the standalone app
 
-Status: proposed, 2026-10-21
+Status: accepted, 2026-10-24 (proposed 2026-10-21)
 
 ## Context
 
@@ -58,10 +58,15 @@ Details:
 
 ### 5. Code layout
 
-- `ufield/storage/`: `StorageProvider` interface (ADR in `CLAUDE.md`), `LocalStorageProvider`, `GoogleDriveProvider` (Qt Network, Drive REST v3), the sync engine and `.ufield/sync.json`.
-- `app/android/src/fi/biomitta/ufield/DriveAuth.java`: the Play services bridge. These are new files in an upstream directory; no upstream file changes.
-- UI: a "Google Drive" section in the project list next to local projects, with sign-in and sync status. The QML lives in `ufield/qml/`; the hook into upstream's project screen is a marked `UFIELD:` change.
-- Tools: `list_projects(storage: google_drive)`, `sync_project`, with schema tests (rule 1).
+- `ufield/storage/`:
+  - `syncplan.*`: the rules of §3, pure C++17 (`planSync`, exclusions, conflict names).
+  - `syncengine.*`: `SyncEngine` (scan, `.ufield/sync.json`, apply), behind the `RemoteStore` interface (`remotestore.h`); directions both, push and pull for `sync_project`.
+  - `googledriveprovider.*`: `RemoteStore` for Drive REST v3 (Qt Network).
+  - `driveauth.*`: token provider from Play services; `drivesync.*`: `DriveSync`, the controller the UI and tools call (linking `.ufield/drive.json`, worker threads, listing and downloading Drive projects).
+  - Tests in `ufield/storage/tests/`, against an in-memory remote and a fake Drive API on localhost (`fakedrive.h`).
+- `app/android/src/fi/biomitta/ufield/`: `DriveAuth.java` (AuthorizationClient) and `DriveAuthActivity.java` (the consent screen). New files in an upstream directory; the manifest and Gradle changes are listed in `docs/upstream.md`.
+- UI: `ufield/qml/MMDriveProjectsTab.qml`, a "Drive" tab in upstream's project list (`MMProjectController.qml`, marked `UFIELD:`), using `__ufieldDriveSync`. Strings are in `ufield/i18n` (Finnish), separate from upstream's Transifex files.
+- Tools: `list_projects(storage: google_drive)` and `sync_project` call `DriveSync` once the app-side ToolDispatcher exists (rule 1); the UI uses the same calls.
 
 ## Consequences
 

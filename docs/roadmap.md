@@ -117,10 +117,15 @@ Several of these have lead times of days to weeks, so start them first.
 
 ## Phase 4 — Google Drive storage
 
-- [ ] Google sign-in and authorisation on Android with `drive.file` only (rule 8). Tokens in the Android Keystore via qtkeychain.
-- [ ] Picker flow so users can open existing QGIS projects: `drive.file` only sees files the app created or the user picked.
-- [ ] `sync_project`: `changes_since`, conflict policy, resumable uploads for video, offline queue.
-- [ ] Media originals uploaded unmodified (rule 5).
+Design: ADR 0004 (app folder `μField/` in My Drive, no stored tokens, keep-both conflicts).
+
+- [ ] Google sign-in and authorisation on Android with `drive.file` only (rule 8): written (`DriveAuth.java`, Play services AuthorizationClient; Play services keeps the grant, nothing is stored). Needs the Cloud project and a stable signing key to test on a device.
+- [x] Sync engine: plan, conflicts (keep both), deletes to Drive's trash, resumable uploads, checksum-checked downloads, resume after interruption; push, pull and both (`ufield/storage`, unit-tested against a fake Drive API).
+- [x] Media originals uploaded byte-for-byte (rule 5).
+- [x] Drive tab in the project list: sync the open project, list and download Drive projects (Finnish and English).
+- [ ] `sync_project` and `list_projects(google_drive)` through the app's ToolDispatcher.
+- [ ] Getting existing QGIS projects in: `ufield-mcp drive push` from a computer, and zip import (ADR 0004 §1); confirm desktop-client files are visible under `drive.file`.
+- [ ] Checkpoint and close GeoPackages before a sync; sync after saving when online.
 
 **Exit check:** a project edited offline on one phone syncs through Drive to QGIS desktop and back with no data or metadata loss.
 
