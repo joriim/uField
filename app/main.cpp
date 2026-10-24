@@ -155,7 +155,7 @@
 #include "qgsapplication.h"
 #include "activeproject.h"
 #include "appsettings.h"
-#include "drivesync.h" // UFIELD: Google Drive sync
+#include "ufieldapp.h" // UFIELD: μField tools and Drive sync
 #include "ufieldtranslations.h" // UFIELD: μField translations
 
 static QString getDataDir()
@@ -757,11 +757,9 @@ int main( int argc, char *argv[] )
   engine.rootContext()->setContextProperty( "__activeLayer", &al );
   engine.rootContext()->setContextProperty( "__projectWizard", &pw );
   engine.rootContext()->setContextProperty( "__localProjectsManager", &localProjectsManager );
-  // UFIELD: Google Drive sync (ADR 0004); downloaded projects join the local project list
-  ufield::DriveSync driveSync;
-  driveSync.setProjectsDir( localProjectsManager.dataDir() );
-  QObject::connect( &driveSync, &ufield::DriveSync::projectDownloaded, &localProjectsManager, &LocalProjectsManager::addLocalProject );
-  engine.rootContext()->setContextProperty( "__ufieldDriveSync", &driveSync );
+  // UFIELD: μField tools and Google Drive sync (ufield/app/ufieldapp.h)
+  ufield::UfieldApp ufieldApp( localProjectsManager, activeProject );
+  ufieldApp.registerContextProperties( engine.rootContext() );
   engine.rootContext()->setContextProperty( "__variablesManager", vm.get() );
 
   // add image provider to pass QIcons/QImages from C++ to QML

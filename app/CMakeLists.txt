@@ -510,8 +510,10 @@ endif ()
 # ########################################################################################
 
 target_link_libraries(MerginMaps PUBLIC mm_core)
-# UFIELD: μField Drive sync and translations (ufield/storage, ufield/i18n)
-target_link_libraries(MerginMaps PRIVATE ufield_sync ufield_i18n)
+# UFIELD: μField tools, Drive sync and translations (ufield/); ufieldapp.cpp is the glue to upstream types
+target_sources(MerginMaps PRIVATE ${CMAKE_SOURCE_DIR}/ufield/app/ufieldapp.cpp ${CMAKE_SOURCE_DIR}/ufield/app/ufieldapp.h)
+target_include_directories(MerginMaps PRIVATE ${CMAKE_SOURCE_DIR}/ufield/app)
+target_link_libraries(MerginMaps PRIVATE ufield_storagetools ufield_i18n)
 
 # at least on Linux qgis_core needs to be linked before Qt libs, otherwise one gets "DSO
 # missing from command line" linker error about missing symbol from qt6::core5compat

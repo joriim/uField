@@ -448,6 +448,7 @@ add_subdirectory(core)
 # UFIELD: μField libraries (Drive sync, translations), linked into the app
 add_subdirectory(ufield/storage)
 add_subdirectory(ufield/i18n)
+add_subdirectory(ufield/tools)
 add_subdirectory(app)
 if (ENABLE_TESTS)
   add_subdirectory(test)

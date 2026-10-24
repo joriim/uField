@@ -29,9 +29,9 @@ Keep this list complete; it is the checklist for every upstream merge.
 | `app/androidutils.cpp` | Camera intent's package from `getPackageName()` | `setClassName` needs the applicationId, which is no longer `uk.co.lutraconsulting` |
 | `app/android/res/xml/file_paths.xml` | `Android/data/fi.biomitta.ufield/` | The app's external directory follows the applicationId |
 | `app/qml/main.qml` | Window title `μField` | Rebrand |
-| `CMakeLists.txt` | `add_subdirectory(ufield/storage)`, `add_subdirectory(ufield/i18n)` | Builds μField's libraries with the app |
-| `app/CMakeLists.txt` | Links `ufield_sync` and `ufield_i18n` into the app | Drive sync (ADR 0004), translations |
-| `app/main.cpp` | Includes `drivesync.h` and `ufieldtranslations.h`; creates `DriveSync` as `__ufieldDriveSync`, its downloads added to `LocalProjectsManager`; installs μField translations after upstream's | Drive sync UI and tools; μField strings in Finnish |
+| `CMakeLists.txt` | `add_subdirectory` of `ufield/storage`, `ufield/i18n`, `ufield/tools` | Builds μField's libraries with the app |
+| `app/CMakeLists.txt` | Adds `ufield/app/ufieldapp.cpp` to the app; links `ufield_storagetools` and `ufield_i18n` | μField tools, Drive sync (ADR 0004), translations |
+| `app/main.cpp` | Includes `ufieldapp.h` and `ufieldtranslations.h`; creates `ufield::UfieldApp` (ToolDispatcher as `__ufieldTools`, Drive sync as `__ufieldDriveSync`); installs μField translations after upstream's | μField tools and Drive sync; μField strings in Finnish |
 | `app/CMakeLists.txt` (QML) | Adds `ufield/qml` files to the QML module under upstream paths (`project/MMDriveProjectsTab.qml`) | μField QML lives in `ufield/qml` |
 | `app/qml/project/MMProjectController.qml` | Fourth footer tab "Drive" (`drive` state) showing `MMDriveProjectsTab`; footer buttons are a quarter wide | Google Drive projects in the project list |
 | `cmake_templates/build.gradle.in` | `play-services-auth` dependency | Google sign-in and Drive authorisation (AuthorizationClient) |

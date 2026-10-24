@@ -7,9 +7,10 @@
  *                                                                         *
  ***************************************************************************/
 
-// μField: the Google Drive tab of the project list (ADR 0004). All work happens
-// in DriveSync (__ufieldDriveSync), the same code the sync_project tool uses;
-// this file only shows state and forwards taps (CLAUDE.md rule 1).
+// μField: the Google Drive tab of the project list (ADR 0004). Every action is a
+// tool call through __ufieldTools (list_projects, download_project, sync_project),
+// the same calls the voice agent and MCP make (CLAUDE.md rule 1); this file only
+// shows results. __ufieldDriveSync.busy tells whether a sync is running.
 // Served as project/MMDriveProjectsTab.qml next to upstream's project tabs.
 
 import QtQuick
@@ -29,15 +30,24 @@ Item {
   property string listError: ""
   property bool listed: false
 
+  //! call id -> "list" | "sync" | "download"
+  property var pendingCalls: ({})
+
+  function callTool( kind, tool, args ) {
+    let pending = root.pendingCalls
+    pending[ __ufieldTools.callFromUi( tool, args ) ] = kind
+    root.pendingCalls = pending
+  }
+
   function refreshProjectsList() {
     if ( !__ufieldDriveSync.busy ) {
-      __ufieldDriveSync.listDriveProjects()
+      callTool( "list", "list_projects", { "storage": "google_drive" } )
     }
   }
 
   function describe( result ) {
-    if ( !result.ok ) {
-      return qsTr( "Sync failed: %1" ).arg( result.error )
+    if ( result.error !== undefined ) {
+      return qsTr( "Sync failed: %1" ).arg( result.message )
     }
     let text = qsTr( "Synced: %1 uploaded, %2 downloaded, %3 deleted" )
                  .arg( result.uploaded ).arg( result.downloaded ).arg( result.deleted )
@@ -48,23 +58,34 @@ Item {
   }
 
   Connections {
-    target: __ufieldDriveSync
+    target: __ufieldTools
 
-    function onProjectsListed( projects, error ) {
-      root.driveProjects = projects
-      root.listError = error
-      root.listed = true
-    }
-
-    function onSyncFinished( result ) {
-      if ( result.ok && result.conflicts.length === 0 ) {
-        __notificationModel.addSuccess( root.describe( result ) )
+    function onToolFinished( callId, result ) {
+      const kind = root.pendingCalls[ callId ]
+      if ( kind === undefined ) {
+        return // a call made elsewhere
       }
-      else if ( result.ok ) {
+      let pending = root.pendingCalls
+      delete pending[ callId ]
+      root.pendingCalls = pending
+
+      if ( kind === "list" ) {
+        root.driveProjects = result.projects !== undefined ? result.projects : []
+        root.listError = result.error !== undefined ? result.message : ""
+        root.listed = true
+        return
+      }
+      if ( result.error === "already_exists" || result.error === "busy" || result.error === "no_open_project" ) {
+        __notificationModel.addError( result.message )
+      }
+      else if ( result.error !== undefined ) {
+        __notificationModel.addError( root.describe( result ) )
+      }
+      else if ( result.conflicts.length > 0 ) {
         __notificationModel.addWarning( root.describe( result ) )
       }
       else {
-        __notificationModel.addError( root.describe( result ) )
+        __notificationModel.addSuccess( root.describe( result ) )
       }
       root.refreshProjectsList()
     }
@@ -88,7 +109,7 @@ Item {
       width: parent.width
       text: qsTr( "Sync this project with Google Drive" )
       enabled: root.activeProjectFilePath !== "" && !__ufieldDriveSync.busy
-      onClicked: __ufieldDriveSync.syncProject( root.activeProjectFilePath, "both" )
+      onClicked: root.callTool( "sync", "sync_project", { "direction": "both" } )
     }
 
     MMText {
@@ -137,11 +158,8 @@ Item {
         size: MMButton.Sizes.Small
         type: MMButton.Types.Secondary
         enabled: !__ufieldDriveSync.busy
-        onClicked: {
-          if ( !__ufieldDriveSync.downloadProject( modelData.folder_id, modelData.name ) ) {
-            __notificationModel.addError( qsTr( "A project named %1 is already on this device." ).arg( modelData.name ) )
-          }
-        }
+        onClicked: root.callTool( "download", "download_project",
+                                  { "storage": "google_drive", "project_id": modelData.project_id, "name": modelData.name } )
       }
     }
 

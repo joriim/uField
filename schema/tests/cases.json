@@ -1,5 +1,9 @@
 {
   "list_projects": { "valid": [{}, { "storage": "google_drive" }], "invalid": [{ "storage": "dropbox" }] },
+  "download_project": {
+    "valid": [{ "storage": "google_drive", "project_id": "1AbC_dEf-2" }, { "storage": "google_drive", "project_id": "1AbC", "name": "Pellot 2026" }],
+    "invalid": [{ "project_id": "1AbC" }, { "storage": "onedrive", "project_id": "1AbC" }, { "storage": "google_drive", "project_id": "1AbC", "name": "../x" }, { "storage": "google_drive", "project_id": "1AbC", "name": ".." }, { "storage": "google_drive", "project_id": "1AbC", "name": "" }]
+  },
   "open_project": { "valid": [{ "project_id": "kotitila_2026" }], "invalid": [{}, { "project_id": "bad id!" }] },
   "get_location": { "valid": [{}, { "min_accuracy_m": 0.05, "timeout_s": 60 }], "invalid": [{ "timeout_s": 0 }, { "timeout_s": 301 }] },
   "list_layers": { "valid": [{ "source": "registry", "query": "maaperä" }], "invalid": [{ "source": "web" }] },

@@ -1,6 +1,6 @@
 # μField UI translations, kept apart from upstream's Transifex files (app/i18n) so
 # upstream merges never touch them. Finnish here; English is the source language.
-# Regenerate after changing strings in ufield/qml or ufield/storage: scripts/update_ufield_i18n.sh
+# Regenerate after changing strings in ufield/qml, ufield/storage or ufield/tools: scripts/update_ufield_i18n.sh
 cmake_minimum_required(VERSION 3.21)
 project(ufield_i18n LANGUAGES CXX)
 

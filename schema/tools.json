@@ -102,6 +102,27 @@
       }
     },
     {
+      "name": "download_project",
+      "description": "Download a project from the user's storage onto this device as a new local project, linked so that sync_project keeps it in step. Get project_id from list_projects. Fails if a project with that name is already on the device.",
+      "inputSchema": {
+        "type": "object",
+        "required": ["storage", "project_id"],
+        "properties": {
+          "storage": { "enum": ["google_drive"], "description": "Only Google Drive in the MVP." },
+          "project_id": { "$ref": "#/$defs/id" },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "pattern": "^[^/\\\\]+$",
+            "not": { "enum": [".", ".."] },
+            "description": "Name of the local project folder. Defaults to the project's name in storage."
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    {
       "name": "open_project",
       "description": "Open a project so later tools act on it. Returns its layers and editable fields.",
       "inputSchema": { "type": "object", "required": ["project_id"], "properties": { "project_id": { "$ref": "#/$defs/id" } }, "additionalProperties": false }

@@ -1,6 +1,6 @@
 # μField library tests: Drive sync (ufield/storage) and translations
 # (ufield/i18n, checked against ufield/qml). Ubuntu's Qt 6 is enough for these.
-name: μField storage
+name: μField libraries
 
 on:
   workflow_dispatch:
@@ -10,6 +10,8 @@ on:
       - 'ufield/storage/**'
       - 'ufield/i18n/**'
       - 'ufield/qml/**'
+      - 'ufield/tools/**'
+      - 'schema/**'
       - 'scripts/update_ufield_i18n.sh'
       - '.github/workflows/ufield-storage.yml'
   pull_request:
@@ -17,6 +19,8 @@ on:
       - 'ufield/storage/**'
       - 'ufield/i18n/**'
       - 'ufield/qml/**'
+      - 'ufield/tools/**'
+      - 'schema/**'
       - 'scripts/update_ufield_i18n.sh'
       - '.github/workflows/ufield-storage.yml'
 
@@ -38,7 +42,14 @@ jobs:
           ctest --test-dir build --output-on-failure
           # every suite must have been built (Qt found)
           test -x build/test_syncplan && test -x build/test_syncengine && test -x build/test_googledrive && test -x build/test_drivesync
-      - name: Translations (complete and up to date with ufield/qml and ufield/storage)
+      - name: ToolDispatcher (same results as the Python validator on schema/tests/cases.json) and storage tools
+        run: |
+          cmake -S ufield/tools -B build-tools -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_FLAGS="-fsanitize=address,undefined -fno-sanitize-recover=all"
+          cmake --build build-tools
+          ctest --test-dir build-tools --output-on-failure
+          test -x build-tools/test_toolschema && test -x build-tools/test_storagetools
+      - name: Translations (complete and up to date with ufield/qml, ufield/storage and ufield/tools)
         run: |
           scripts/update_ufield_i18n.sh /usr/lib/qt6/bin
           git diff --exit-code -- ufield/i18n/ufield_fi.ts || { echo "::error::Run scripts/update_ufield_i18n.sh and commit ufield/i18n"; exit 1; }

@@ -4,12 +4,12 @@
 <context>
     <name>MMDriveProjectsTab</name>
     <message>
-        <location filename="../qml/MMDriveProjectsTab.qml" line="+23"/>
+        <location filename="../qml/MMDriveProjectsTab.qml" line="+24"/>
         <source>Drive</source>
         <translation>Drive</translation>
     </message>
     <message>
-        <location line="+17"/>
+        <location line="+26"/>
         <source>Sync failed: %1</source>
         <translation>Synkronointi epäonnistui: %1</translation>
     </message>
@@ -27,7 +27,7 @@
         </translation>
     </message>
     <message>
-        <location line="+39"/>
+        <location line="+50"/>
         <source>Projects are kept in the μField folder of your Google Drive. μField can only see the files it created there.</source>
         <translation>Projektit tallennetaan Google Driven μField-kansioon. μField näkee siellä vain itse luomansa tiedostot.</translation>
     </message>
@@ -52,12 +52,7 @@
         <translation>Lataa</translation>
     </message>
     <message>
-        <location line="+6"/>
-        <source>A project named %1 is already on this device.</source>
-        <translation>Tällä laitteella on jo projekti nimeltä %1.</translation>
-    </message>
-    <message>
-        <location line="+13"/>
+        <location line="+16"/>
         <source>Could not read Google Drive: %1</source>
         <translation>Google Driven lukeminen epäonnistui: %1</translation>
     </message>
@@ -233,6 +228,36 @@
         <location line="+14"/>
         <source>Cannot rename %1 for a conflict copy</source>
         <translation>Tiedostoa %1 ei voi nimetä uudelleen ristiriitakopioksi</translation>
+    </message>
+    <message>
+        <location filename="../tools/storagetools.cpp" line="+29"/>
+        <source>Another Google Drive sync is running; try again when it has finished</source>
+        <translation>Toinen Google Drive -synkronointi on käynnissä; yritä uudelleen, kun se on valmis</translation>
+    </message>
+    <message>
+        <location line="+50"/>
+        <source>A project named %1 is already on this device</source>
+        <translation>Tällä laitteella on jo projekti nimeltä %1</translation>
+    </message>
+    <message>
+        <location line="+20"/>
+        <source>Open a project first</source>
+        <translation>Avaa ensin projekti</translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>The open project cannot be synced</source>
+        <translation>Avointa projektia ei voi synkronoida</translation>
+    </message>
+    <message>
+        <location line="+10"/>
+        <source>%1 storage is not available in this version</source>
+        <translation>Tallennustila %1 ei ole käytettävissä tässä versiossa</translation>
+    </message>
+    <message>
+        <location line="+71"/>
+        <source>No project with this id in Google Drive</source>
+        <translation>Google Drivessa ei ole projektia tällä tunnisteella</translation>
     </message>
 </context>
 </TS>
