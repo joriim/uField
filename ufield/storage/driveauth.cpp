@@ -9,16 +9,35 @@
 
 #include "driveauth.h"
 
+#include <QCoreApplication>
 #include <memory>
 
 #ifdef Q_OS_ANDROID
-#include <QCoreApplication>
 #include <QJniEnvironment>
 #include <QJniObject>
 #endif
 
 namespace ufield
 {
+
+  QString driveAuthMessage( const QString &code )
+  {
+    if ( code == QLatin1String( "cancelled" ) )
+      return QCoreApplication::translate( "ufield", "Google sign-in was cancelled" );
+    if ( code == QLatin1String( kDriveConsentRequired ) )
+      return QCoreApplication::translate( "ufield", "Sign in to Google Drive first" );
+    if ( code == QLatin1String( "in_progress" ) )
+      return QCoreApplication::translate( "ufield", "Google sign-in is already open" );
+    if ( code == QLatin1String( "timeout" ) )
+      return QCoreApplication::translate( "ufield", "Google sign-in timed out" );
+    if ( code == QLatin1String( "not_granted" ) )
+      return QCoreApplication::translate( "ufield", "Google Drive access was not granted" );
+    if ( code.startsWith( QLatin1String( "failed:" ) ) )
+      return QCoreApplication::translate( "ufield", "Google sign-in failed (%1)" ).arg( code.mid( 7 ) );
+    if ( code.isEmpty() )
+      return QCoreApplication::translate( "ufield", "Not signed in to Google Drive" );
+    return QCoreApplication::translate( "ufield", "Google sign-in failed (%1)" ).arg( code ); // no_token, main_thread
+  }
 
   GoogleDriveProvider::TokenProvider driveTokenProvider( bool interactive )
   {
@@ -34,7 +53,7 @@ namespace ufield
       QJniEnvironment env;
       if ( env.checkAndClearExceptions() || !result.isValid() )
       {
-        error = QStringLiteral( "Google sign-in is not available on this device" );
+        error = QCoreApplication::translate( "ufield", "Google sign-in is not available on this device" );
         return QString();
       }
       const jobjectArray pair = result.object<jobjectArray>();
@@ -43,7 +62,7 @@ namespace ufield
       if ( token.isEmpty() )
       {
         lastToken->clear();
-        error = message.isEmpty() ? QStringLiteral( "Not signed in to Google Drive" ) : message;
+        error = driveAuthMessage( message );
         return QString();
       }
       *lastToken = token;
@@ -52,7 +71,7 @@ namespace ufield
 #else
     Q_UNUSED( interactive )
     return []( bool, QString &error ) -> QString {
-      error = QStringLiteral( "Google Drive sign-in is only available on Android" );
+      error = QCoreApplication::translate( "ufield", "Google Drive sign-in is only available on Android" );
       return QString();
     };
 #endif

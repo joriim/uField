@@ -26,8 +26,11 @@ namespace ufield
    */
   GoogleDriveProvider::TokenProvider driveTokenProvider( bool interactive );
 
-  //! Error text DriveAuth returns when access was never granted and \a interactive was false.
+  //! Error code DriveAuth returns when access was never granted and \a interactive was false.
   inline constexpr const char *kDriveConsentRequired = "consent_required";
+
+  //! The translated message for an error code from DriveAuth.java.
+  QString driveAuthMessage( const QString &code );
 
 } // namespace ufield
 

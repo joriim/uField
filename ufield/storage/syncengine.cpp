@@ -9,6 +9,7 @@
 
 #include "syncengine.h"
 
+#include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDateTime>
 #include <QDir>
@@ -36,13 +37,13 @@ namespace ufield
       QFile f( file );
       if ( !f.open( QIODevice::ReadOnly ) )
       {
-        error = QStringLiteral( "Cannot read %1: %2" ).arg( file, f.errorString() );
+        error = QCoreApplication::translate( "ufield", "Cannot read %1: %2" ).arg( file, f.errorString() );
         return false;
       }
       QCryptographicHash hash( QCryptographicHash::Md5 );
       if ( !hash.addData( &f ) )
       {
-        error = QStringLiteral( "Cannot read %1" ).arg( file );
+        error = QCoreApplication::translate( "ufield", "Cannot read %1" ).arg( file );
         return false;
       }
       md5 = hash.result().toHex().toStdString();
@@ -64,14 +65,14 @@ namespace ufield
       return true;
     if ( !f.open( QIODevice::ReadOnly ) )
     {
-      error = QStringLiteral( "Cannot read the sync state: %1" ).arg( f.errorString() );
+      error = QCoreApplication::translate( "ufield", "Cannot read the sync state: %1" ).arg( f.errorString() );
       return false;
     }
     QJsonParseError parseError;
     const QJsonDocument doc = QJsonDocument::fromJson( f.readAll(), &parseError );
     if ( !doc.isObject() || doc.object().value( QStringLiteral( "version" ) ).toInt() != kStateVersion )
     {
-      error = QStringLiteral( "Invalid sync state %1" ).arg( f.fileName() );
+      error = QCoreApplication::translate( "ufield", "Invalid sync state %1" ).arg( f.fileName() );
       return false;
     }
     const QJsonObject jsonFiles = doc.object().value( QStringLiteral( "files" ) ).toObject();
@@ -109,7 +110,7 @@ namespace ufield
     QSaveFile f( path );
     if ( !f.open( QIODevice::WriteOnly ) || f.write( QJsonDocument( root ).toJson() ) < 0 || !f.commit() )
     {
-      error = QStringLiteral( "Cannot write the sync state: %1" ).arg( f.errorString() );
+      error = QCoreApplication::translate( "ufield", "Cannot write the sync state: %1" ).arg( f.errorString() );
       return false;
     }
     return true;
@@ -220,7 +221,7 @@ namespace ufield
     {
       // Changed on the remote since the listing, or a broken transfer: the next sync picks it up.
       QFile::remove( tmp );
-      error = QStringLiteral( "Downloaded %1 does not match the remote checksum" ).arg( qs( path ) );
+      error = QCoreApplication::translate( "ufield", "Downloaded %1 does not match the remote checksum" ).arg( qs( path ) );
       return false;
     }
 
@@ -230,7 +231,7 @@ namespace ufield
     std::filesystem::rename( QFile::encodeName( tmp ).toStdString(), QFile::encodeName( target ).toStdString(), ec );
     if ( ec )
     {
-      error = QStringLiteral( "Cannot write %1: %2" ).arg( qs( path ), QString::fromStdString( ec.message() ) );
+      error = QCoreApplication::translate( "ufield", "Cannot write %1: %2" ).arg( qs( path ), QString::fromStdString( ec.message() ) );
       return false;
     }
 
@@ -247,7 +248,7 @@ namespace ufield
       return false;
     if ( uploaded.md5.empty() )
     {
-      error = QStringLiteral( "The remote returned no checksum for %1" ).arg( qs( path ) );
+      error = QCoreApplication::translate( "ufield", "The remote returned no checksum for %1" ).arg( qs( path ) );
       return false;
     }
     // If the file changed during the upload, its mtime changed too, so the next scan rehashes it.
@@ -285,7 +286,7 @@ namespace ufield
       case ActionType::DeleteLocal:
         if ( !QFile::remove( absolute( path ) ) && QFileInfo::exists( absolute( path ) ) )
         {
-          error = QStringLiteral( "Cannot delete %1" ).arg( qs( path ) );
+          error = QCoreApplication::translate( "ufield", "Cannot delete %1" ).arg( qs( path ) );
           return false;
         }
         mSynced.erase( path );
@@ -299,7 +300,7 @@ namespace ufield
         // sees the original as deleted locally (download) and the copy as new (upload).
         if ( !QFile::rename( absolute( path ), absolute( action.conflictPath ) ) )
         {
-          error = QStringLiteral( "Cannot rename %1 for a conflict copy" ).arg( qs( path ) );
+          error = QCoreApplication::translate( "ufield", "Cannot rename %1 for a conflict copy" ).arg( qs( path ) );
           return false;
         }
         mMtimes[action.conflictPath] = mtimeMs( QFileInfo( absolute( action.conflictPath ) ) );

@@ -58,12 +58,14 @@ public final class DriveAuth
      *
      * @param staleToken  a token Drive rejected (401), cleared from Play services' cache first; or null
      * @param interactive whether the consent screen may be shown when the user has not granted access yet
-     * @return { token, error }: exactly one is non-null. Errors never contain the token.
+     * @return { token, error }: exactly one is non-null. The error is a code (cancelled, consent_required,
+     *         in_progress, timeout, no_token, not_granted, main_thread, failed:&lt;detail&gt;) that the C++
+     *         side turns into a translated message; it never contains the token.
      */
     public static String[] accessToken( Context context, String staleToken, boolean interactive )
     {
         if ( Looper.myLooper() == Looper.getMainLooper() )
-            return new String[] { null, "DriveAuth.accessToken called on the main thread" };
+            return new String[] { null, "main_thread" };
         try
         {
             if ( staleToken != null && !staleToken.isEmpty() )
@@ -89,7 +91,7 @@ public final class DriveAuth
         synchronized ( sLock )
         {
             if ( sConsentDone != null )
-                return new String[] { null, "Google sign-in is already in progress" };
+                return new String[] { null, "in_progress" };
             done = new CountDownLatch( 1 );
             sConsentDone = done;
             sConsentResult = null;
@@ -106,7 +108,7 @@ public final class DriveAuth
             sConsentDone = null;
             sConsentResult = null;
             if ( !finished || result == null )
-                return new String[] { null, "Google sign-in timed out" };
+                return new String[] { null, "timeout" };
             return result;
         }
     }
@@ -140,18 +142,18 @@ public final class DriveAuth
     {
         String token = result.getAccessToken();
         if ( token == null || token.isEmpty() )
-            return new String[] { null, "Google returned no access token" };
+            return new String[] { null, "no_token" };
         if ( !result.getGrantedScopes().contains( DRIVE_FILE_SCOPE ) )
-            return new String[] { null, "Google Drive access was not granted" };
+            return new String[] { null, "not_granted" };
         return new String[] { token, null };
     }
 
-    // Status codes and exception types only: messages from the network stack can contain URLs.
+    // "failed:" plus a status code or exception type only: messages from the network stack can contain URLs.
     private static String describe( Exception e )
     {
         Throwable cause = e.getCause() != null ? e.getCause() : e;
         if ( cause instanceof ApiException )
-            return "Google sign-in failed (status " + ( ( ApiException ) cause ).getStatusCode() + ")";
-        return "Google sign-in failed (" + cause.getClass().getSimpleName() + ")";
+            return "failed:status " + ( ( ApiException ) cause ).getStatusCode();
+        return "failed:" + cause.getClass().getSimpleName();
     }
 }

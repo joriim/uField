@@ -38,7 +38,7 @@ jobs:
           ctest --test-dir build --output-on-failure
           # every suite must have been built (Qt found)
           test -x build/test_syncplan && test -x build/test_syncengine && test -x build/test_googledrive && test -x build/test_drivesync
-      - name: Translations (complete and up to date with ufield/qml)
+      - name: Translations (complete and up to date with ufield/qml and ufield/storage)
         run: |
           scripts/update_ufield_i18n.sh /usr/lib/qt6/bin
           git diff --exit-code -- ufield/i18n/ufield_fi.ts || { echo "::error::Run scripts/update_ufield_i18n.sh and commit ufield/i18n"; exit 1; }

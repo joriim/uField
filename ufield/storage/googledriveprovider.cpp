@@ -9,6 +9,7 @@
 
 #include "googledriveprovider.h"
 
+#include <QCoreApplication>
 #include <QBuffer>
 #include <QEventLoop>
 #include <QFile>
@@ -68,7 +69,7 @@ namespace ufield
       const QString token = mToken( attempt > 0, tokenError );
       if ( token.isEmpty() )
       {
-        error = tokenError.isEmpty() ? QStringLiteral( "Not signed in to Google Drive" ) : tokenError;
+        error = tokenError.isEmpty() ? QCoreApplication::translate( "ufield", "Not signed in to Google Drive" ) : tokenError;
         return false;
       }
       QNetworkRequest request( url );
@@ -108,7 +109,7 @@ namespace ufield
       if ( response.status == 0 )
       {
         // No HTTP response at all. QNetworkReply::errorString() can contain the URL; keep it out.
-        error = QStringLiteral( "Google Drive is unreachable (network error %1)" ).arg( static_cast<int>( networkError ) );
+        error = QCoreApplication::translate( "ufield", "Google Drive is unreachable (network error %1)" ).arg( static_cast<int>( networkError ) );
         return false;
       }
       if ( response.status != 401 ) // a 401 wrote nothing to the sink, so a retry is safe
@@ -131,9 +132,9 @@ namespace ufield
       return true;
     const QString message = jsonOf( response.body ).value( QStringLiteral( "error" ) ).toObject().value( QStringLiteral( "message" ) ).toString();
     if ( response.status == 401 )
-      error = QStringLiteral( "Google Drive sign-in has expired (%1)" ).arg( what );
+      error = QCoreApplication::translate( "ufield", "Google Drive sign-in has expired (%1)" ).arg( what );
     else
-      error = QStringLiteral( "Google Drive: %1 failed with HTTP %2%3" ).arg( what ).arg( response.status ).arg( message.isEmpty() ? QString() : QStringLiteral( ": " ) + message );
+      error = QCoreApplication::translate( "ufield", "Google Drive: %1 failed with HTTP %2%3" ).arg( what ).arg( response.status ).arg( message.isEmpty() ? QString() : QStringLiteral( ": " ) + message );
     return false;
   }
 
@@ -152,7 +153,7 @@ namespace ufield
         query.append( { QStringLiteral( "pageToken" ), pageToken } );
 
       Response response;
-      if ( !send( "GET", api( QStringLiteral( "/drive/v3/files" ), query ), {}, nullptr, response, error ) || !ok( response, QStringLiteral( "listing" ), error ) )
+      if ( !send( "GET", api( QStringLiteral( "/drive/v3/files" ), query ), {}, nullptr, response, error ) || !ok( response, QCoreApplication::translate( "ufield", "listing" ), error ) )
         return false;
 
       const QJsonObject json = jsonOf( response.body );
@@ -206,7 +207,7 @@ namespace ufield
     QFile file( localFile );
     if ( !file.open( QIODevice::WriteOnly | QIODevice::Truncate ) )
     {
-      error = QStringLiteral( "Cannot write %1" ).arg( localFile );
+      error = QCoreApplication::translate( "ufield", "Cannot write %1" ).arg( localFile );
       return false;
     }
     Response response;
@@ -214,7 +215,7 @@ namespace ufield
     if ( !send( "GET", url, {}, nullptr, response, error, &file ) )
       return false;
     file.close();
-    return ok( response, QStringLiteral( "download" ), error );
+    return ok( response, QCoreApplication::translate( "ufield", "download" ), error );
   }
 
   bool GoogleDriveProvider::folderFor( const QString &dirPath, QString &folderId, QString &error )
@@ -235,7 +236,7 @@ namespace ufield
     metadata[QStringLiteral( "parents" )] = QJsonArray { parentId };
     Response response;
     if ( !sendJson( "POST", api( QStringLiteral( "/drive/v3/files" ), { { QStringLiteral( "fields" ), QStringLiteral( "id" ) } } ), metadata, response, error ) ||
-         !ok( response, QStringLiteral( "creating a folder" ), error ) )
+         !ok( response, QCoreApplication::translate( "ufield", "creating a folder" ), error ) )
       return false;
     folderId = jsonOf( response.body ).value( QStringLiteral( "id" ) ).toString();
     mFolders.insert( dirPath, folderId );
@@ -247,7 +248,7 @@ namespace ufield
     QFile file( localFile );
     if ( !file.open( QIODevice::ReadOnly ) )
     {
-      error = QStringLiteral( "Cannot read %1" ).arg( localFile );
+      error = QCoreApplication::translate( "ufield", "Cannot read %1" ).arg( localFile );
       return false;
     }
 
@@ -274,17 +275,17 @@ namespace ufield
     }
 
     Response session;
-    if ( !sendJson( verb, url, metadata, session, error ) || !ok( session, QStringLiteral( "upload" ), error ) )
+    if ( !sendJson( verb, url, metadata, session, error ) || !ok( session, QCoreApplication::translate( "ufield", "upload" ), error ) )
       return false;
     const QUrl sessionUrl( QString::fromUtf8( session.location ) );
     if ( !sessionUrl.isValid() || sessionUrl.host() != mApiBase.host() )
     {
-      error = QStringLiteral( "Google Drive: upload failed (no upload session)" );
+      error = QCoreApplication::translate( "ufield", "Google Drive: upload failed (no upload session)" );
       return false;
     }
 
     Response response;
-    if ( !send( "PUT", sessionUrl, "application/octet-stream", &file, response, error ) || !ok( response, QStringLiteral( "upload" ), error ) )
+    if ( !send( "PUT", sessionUrl, "application/octet-stream", &file, response, error ) || !ok( response, QCoreApplication::translate( "ufield", "upload" ), error ) )
       return false;
     const QJsonObject json = jsonOf( response.body );
     uploaded.id = json.value( QStringLiteral( "id" ) ).toString().toStdString();
@@ -297,7 +298,7 @@ namespace ufield
   {
     Response response;
     return sendJson( "PATCH", api( QStringLiteral( "/drive/v3/files/%1" ).arg( remoteId ) ), QJsonObject { { QStringLiteral( "trashed" ), true } }, response, error ) &&
-           ok( response, QStringLiteral( "moving to trash" ), error );
+           ok( response, QCoreApplication::translate( "ufield", "moving to trash" ), error );
   }
 
   bool GoogleDriveProvider::listFolders( const QString &parentId, QList<QPair<QString, QString>> &folders, QString &error )
@@ -315,7 +316,7 @@ namespace ufield
       if ( !pageToken.isEmpty() )
         query.append( { QStringLiteral( "pageToken" ), pageToken } );
       Response response;
-      if ( !send( "GET", api( QStringLiteral( "/drive/v3/files" ), query ), {}, nullptr, response, error ) || !ok( response, QStringLiteral( "listing folders" ), error ) )
+      if ( !send( "GET", api( QStringLiteral( "/drive/v3/files" ), query ), {}, nullptr, response, error ) || !ok( response, QCoreApplication::translate( "ufield", "listing folders" ), error ) )
         return false;
       const QJsonObject json = jsonOf( response.body );
       for ( const QJsonValue &value : json.value( QStringLiteral( "files" ) ).toArray() )
@@ -337,7 +338,7 @@ namespace ufield
       { QStringLiteral( "orderBy" ), QStringLiteral( "createdTime" ) },
     };
     Response response;
-    if ( !send( "GET", api( QStringLiteral( "/drive/v3/files" ), query ), {}, nullptr, response, error ) || !ok( response, QStringLiteral( "finding a folder" ), error ) )
+    if ( !send( "GET", api( QStringLiteral( "/drive/v3/files" ), query ), {}, nullptr, response, error ) || !ok( response, QCoreApplication::translate( "ufield", "finding a folder" ), error ) )
       return false;
     const QJsonArray found = jsonOf( response.body ).value( QStringLiteral( "files" ) ).toArray();
     if ( !found.isEmpty() )
@@ -351,7 +352,7 @@ namespace ufield
     metadata[QStringLiteral( "mimeType" )] = QLatin1String( kFolderMimeType );
     metadata[QStringLiteral( "parents" )] = QJsonArray { parentId };
     if ( !sendJson( "POST", api( QStringLiteral( "/drive/v3/files" ), { { QStringLiteral( "fields" ), QStringLiteral( "id" ) } } ), metadata, response, error ) ||
-         !ok( response, QStringLiteral( "creating a folder" ), error ) )
+         !ok( response, QCoreApplication::translate( "ufield", "creating a folder" ), error ) )
       return false;
     folderId = jsonOf( response.body ).value( QStringLiteral( "id" ) ).toString();
     return true;

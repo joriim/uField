@@ -9,6 +9,7 @@
 
 #include "drivesync.h"
 
+#include <QCoreApplication>
 #include <QDate>
 #include <QDir>
 #include <QFile>
@@ -42,7 +43,7 @@ namespace ufield
       const QJsonObject link { { QStringLiteral( "version" ), 1 }, { QStringLiteral( "folder_id" ), folderId } };
       if ( !f.open( QIODevice::WriteOnly ) || f.write( QJsonDocument( link ).toJson() ) < 0 || !f.commit() )
       {
-        error = QStringLiteral( "Cannot link the project to Google Drive: %1" ).arg( f.errorString() );
+        error = QCoreApplication::translate( "ufield", "Cannot link the project to Google Drive: %1" ).arg( f.errorString() );
         return false;
       }
       return true;
