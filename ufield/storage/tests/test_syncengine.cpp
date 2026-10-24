@@ -120,10 +120,10 @@ class TestSyncEngine : public QObject
       QFile f( dir.filePath( path ) );
       return f.open( QIODevice::ReadOnly ) ? f.readAll() : QByteArray();
     }
-    static SyncResult run( const QTemporaryDir &dir, FakeRemote &remote )
+    static SyncResult run( const QTemporaryDir &dir, FakeRemote &remote, SyncDirection direction = SyncDirection::Both )
     {
       SyncEngine engine( dir.path(), remote );
-      return engine.sync( QStringLiteral( "conflict 2026-10-21 Pixel" ) );
+      return engine.sync( QStringLiteral( "conflict 2026-10-21 Pixel" ), direction );
     }
 
   private slots:
@@ -268,6 +268,45 @@ class TestSyncEngine : public QObject
       synced["v.mp4"].localMtimeMs -= 1000;
       QVERIFY( scanProject( a.path(), synced, files, mtimes, error ) );
       QCOMPARE( files["v.mp4"].md5, FakeRemote::md5( "video" ) );
+    }
+
+    void pushAndPullAreOneWay()
+    {
+      QTemporaryDir a, b;
+      FakeRemote remote;
+      write( a, "shared.md", "v1" );
+      QVERIFY( run( a, remote ).ok );
+      QVERIFY( run( b, remote ).ok );
+
+      write( a, "local.md", "from a" );
+      remote.put( "shared.md", "v2 from b" );
+
+      // pull: takes the remote change, leaves the local one
+      SyncResult r = run( a, remote, SyncDirection::Pull );
+      QVERIFY( r.ok );
+      QCOMPARE( r.downloaded, 1 );
+      QCOMPARE( r.uploaded, 0 );
+      QCOMPARE( r.skipped, 1 );
+      QCOMPARE( read( a, "shared.md" ), QByteArray( "v2 from b" ) );
+      QVERIFY( remote.idOf( "local.md" ).isEmpty() );
+
+      // push: now sends it
+      r = run( a, remote, SyncDirection::Push );
+      QVERIFY( r.ok );
+      QCOMPARE( r.uploaded, 1 );
+      QCOMPARE( r.skipped, 0 );
+      QCOMPARE( remote.content( "local.md" ), QByteArray( "from a" ) );
+
+      // a conflict is left for a two-way sync, with both versions untouched
+      write( a, "shared.md", "edit on a" );
+      remote.put( "shared.md", "edit on b" );
+      r = run( a, remote, SyncDirection::Push );
+      QVERIFY( r.ok );
+      QCOMPARE( r.skipped, 1 );
+      QVERIFY( r.conflictCopies.isEmpty() );
+      QCOMPARE( read( a, "shared.md" ), QByteArray( "edit on a" ) );
+      QCOMPARE( remote.content( "shared.md" ), QByteArray( "edit on b" ) );
+      QCOMPARE( run( a, remote ).conflictCopies.size(), 1 );
     }
 
     void invalidStateIsAnError()

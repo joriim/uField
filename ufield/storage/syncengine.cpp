@@ -159,7 +159,28 @@ namespace ufield
 
   bool SyncEngine::saveState( QString &error ) { return SyncState::save( mDir, mSynced, error ); }
 
-  SyncResult SyncEngine::sync( const QString &conflictSuffix )
+  static bool allowed( sync::ActionType type, SyncDirection direction )
+  {
+    using sync::ActionType;
+    switch ( type )
+    {
+      case ActionType::UploadNew:
+      case ActionType::Upload:
+      case ActionType::DeleteRemote:
+        return direction != SyncDirection::Pull;
+      case ActionType::Download:
+      case ActionType::DeleteLocal:
+        return direction != SyncDirection::Push;
+      case ActionType::Conflict:
+        return direction == SyncDirection::Both;
+      case ActionType::RecordOnly:
+      case ActionType::ForgetRecord:
+        return true;
+    }
+    return true;
+  }
+
+  SyncResult SyncEngine::sync( const QString &conflictSuffix, SyncDirection direction )
   {
     SyncResult result;
     if ( !SyncState::load( mDir, mSynced, result.error ) || !scanProject( mDir, mSynced, mLocal, mMtimes, result.error ) ||
@@ -169,6 +190,12 @@ namespace ufield
     const std::vector<sync::Action> plan = sync::planSync( mLocal, mRemoteFiles, mSynced, conflictSuffix.toStdString() );
     for ( const sync::Action &action : plan )
     {
+      // A skipped action leaves its sync record as it was, so the next sync plans it again.
+      if ( !allowed( action.type, direction ) )
+      {
+        ++result.skipped;
+        continue;
+      }
       if ( !apply( action, result, result.error ) || !saveState( result.error ) )
         return result;
     }

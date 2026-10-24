@@ -40,6 +40,14 @@ namespace ufield
   bool scanProject( const QString &projectDir, const sync::SyncedFiles &synced, sync::LocalFiles &files,
                     std::map<std::string, std::int64_t> &mtimes, QString &error );
 
+  //! `sync_project` direction: push and pull leave the other side's changes, and conflicts, for a later two-way sync.
+  enum class SyncDirection
+  {
+    Both,
+    Push, //!< local changes to the remote only
+    Pull, //!< remote changes to the device only
+  };
+
   struct SyncResult
   {
     bool ok = false;
@@ -48,6 +56,7 @@ namespace ufield
     int downloaded = 0;
     int deleted = 0;          //!< local and remote deletes
     QStringList conflictCopies; //!< local files renamed to keep both versions
+    int skipped = 0;            //!< changes left for a later sync by a push or pull
   };
 
   /**
@@ -65,7 +74,7 @@ namespace ufield
       SyncEngine( const QString &projectDir, RemoteStore &remote );
 
       //! \param conflictSuffix e.g. "conflict 2026-10-21 Pixel 8", see sync::conflictName
-      SyncResult sync( const QString &conflictSuffix );
+      SyncResult sync( const QString &conflictSuffix, SyncDirection direction = SyncDirection::Both );
 
     private:
       bool apply( const sync::Action &action, SyncResult &result, QString &error );
