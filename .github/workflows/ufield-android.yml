@@ -20,6 +20,7 @@ on:
     paths:
       - 'app/**'
       - 'core/**'
+      - 'ufield/**'
       - 'cmake/**'
       - 'cmake_templates/**'
       - 'CMakeLists.txt'
@@ -31,6 +32,7 @@ on:
     paths:
       - 'app/**'
       - 'core/**'
+      - 'ufield/**'
       - 'cmake/**'
       - 'cmake_templates/**'
       - 'CMakeLists.txt'

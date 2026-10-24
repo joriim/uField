@@ -219,7 +219,7 @@ class TestGoogleDrive : public QObject
 
     GoogleDriveProvider provider()
     {
-      return GoogleDriveProvider( "root-project", [this]( bool forceRefresh ) {
+      return GoogleDriveProvider( "root-project", [this]( bool forceRefresh, QString & ) {
         ++tokenCalls;
         if ( forceRefresh )
           currentToken = drive->validToken;
@@ -319,7 +319,7 @@ class TestGoogleDrive : public QObject
     {
       drive->validToken = "something-else";
       currentToken = "secret-token-value";
-      GoogleDriveProvider p( "root-project", [this]( bool ) { return currentToken; }, drive->base() );
+      GoogleDriveProvider p( "root-project", [this]( bool, QString & ) { return currentToken; }, drive->base() );
       sync::RemoteFiles files;
       QString error;
       QVERIFY( !p.list( files, error ) );
@@ -330,11 +330,15 @@ class TestGoogleDrive : public QObject
 
     void notSignedIn()
     {
-      GoogleDriveProvider p( "root-project", []( bool ) { return QString(); }, drive->base() );
+      GoogleDriveProvider p( "root-project", []( bool, QString & ) { return QString(); }, drive->base() );
       sync::RemoteFiles files;
       QString error;
       QVERIFY( !p.list( files, error ) );
       QCOMPARE( error, QStringLiteral( "Not signed in to Google Drive" ) );
+
+      GoogleDriveProvider cancelled( "root-project", []( bool, QString &e ) { e = "cancelled"; return QString(); }, drive->base() );
+      QVERIFY( !cancelled.list( files, error ) );
+      QCOMPARE( error, QStringLiteral( "cancelled" ) );
     }
 
     void findOrCreateFolderWithQuotes()

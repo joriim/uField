@@ -41,7 +41,8 @@ namespace ufield
   class GoogleDriveProvider : public RemoteStore
   {
     public:
-      using TokenProvider = std::function<QString( bool forceRefresh )>;
+      //! Returns an access token, or an empty string and sets \a error (which must not contain a token).
+      using TokenProvider = std::function<QString( bool forceRefresh, QString &error )>;
 
       static constexpr const char *kFolderMimeType = "application/vnd.google-apps.folder";
 

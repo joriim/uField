@@ -72,6 +72,14 @@
                 android:value="-- %%INSERT_APP_ARGUMENTS%% --" />
         </activity>
 
+        <!-- UFIELD: Google's consent screen for Drive sync (ADR 0004), outside MMActivity -->
+        <activity
+            android:name="fi.biomitta.ufield.DriveAuthActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden"
+            />
+
         <!-- Activity Android native camera -->
         <activity
             android:name="uk.co.lutraconsulting.CameraActivity"

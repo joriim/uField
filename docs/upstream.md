@@ -13,7 +13,7 @@
 ## What lives where
 
 - `app/`, `core/`, `cmake/`, `cmake_templates/`, `vcpkg/`, `test/`, `gallery/`, `fastlane/`, `CMakeLists.txt`, `vcpkg.json`, `VCPKG_BASELINE`: upstream. Change only when unavoidable, keep the diff minimal and mark each change with `// UFIELD:` (or `# UFIELD:`) and a one-line reason (`CLAUDE.md` rule 2).
-- `ufield/`, `server/`, `schema/`, `config/`, `templates/`, `docs/adr/`, `docs/roadmap.md` and the μField files in `scripts/`: μField.
+- `ufield/`, `app/android/src/fi/biomitta/ufield/` (new Java files in an upstream folder), `server/`, `schema/`, `config/`, `templates/`, `docs/adr/`, `docs/roadmap.md` and the μField files in `scripts/`: μField.
 - `.github/workflows/`: upstream's workflows are kept unchanged so merges stay clean, and disabled in this repository's Actions settings (they only run in `MerginMaps/mobile` anyway). μField's workflows are `ufield-android.yml`, `schema.yml` and `server.yml`.
 
 ## Changes to upstream files
@@ -29,6 +29,10 @@ Keep this list complete; it is the checklist for every upstream merge.
 | `app/androidutils.cpp` | Camera intent's package from `getPackageName()` | `setClassName` needs the applicationId, which is no longer `uk.co.lutraconsulting` |
 | `app/android/res/xml/file_paths.xml` | `Android/data/fi.biomitta.ufield/` | The app's external directory follows the applicationId |
 | `app/qml/main.qml` | Window title `μField` | Rebrand |
+| `CMakeLists.txt` | `add_subdirectory(ufield/storage)` | Builds μField's Drive sync library with the app |
+| `app/CMakeLists.txt` | Links `ufield_sync` into the app | Drive sync (ADR 0004) |
+| `cmake_templates/build.gradle.in` | `play-services-auth` dependency | Google sign-in and Drive authorisation (AuthorizationClient) |
+| `cmake_templates/AndroidManifest.xml.in` | `fi.biomitta.ufield.DriveAuthActivity` | Shows Google's consent screen without changing `MMActivity` |
 
 Rebrand still to do: the launcher icon, splash screen and colours (need μField artwork); user-visible "Mergin Maps" strings in `tr()` texts, together with their Finnish and English translations; turning off Mergin cloud sign-in by default.
 

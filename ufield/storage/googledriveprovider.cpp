@@ -64,10 +64,11 @@ namespace ufield
   {
     for ( int attempt = 0; attempt < 2; ++attempt )
     {
-      const QString token = mToken( attempt > 0 );
+      QString tokenError;
+      const QString token = mToken( attempt > 0, tokenError );
       if ( token.isEmpty() )
       {
-        error = QStringLiteral( "Not signed in to Google Drive" );
+        error = tokenError.isEmpty() ? QStringLiteral( "Not signed in to Google Drive" ) : tokenError;
         return false;
       }
       QNetworkRequest request( url );

@@ -510,6 +510,8 @@ endif ()
 # ########################################################################################
 
 target_link_libraries(MerginMaps PUBLIC mm_core)
+# UFIELD: μField Drive sync (ufield/storage)
+target_link_libraries(MerginMaps PRIVATE ufield_sync)
 
 # at least on Linux qgis_core needs to be linked before Qt libs, otherwise one gets "DSO
 # missing from command line" linker error about missing symbol from qt6::core5compat

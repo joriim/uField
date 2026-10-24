@@ -11,7 +11,15 @@ Every third-party dependency, its licence and where it is used. Rule 3 in `CLAUD
 
 ## App
 
-None added yet beyond upstream Mergin Maps mobile (see upstream for its list). Planned: qtkeychain (BSD-3-Clause, ADR 0002).
+Beyond upstream Mergin Maps mobile (see upstream for its list):
+
+| Package | Licence | Used for |
+|---|---|---|
+| `com.google.android.gms:play-services-auth` 21.3.0 | Android Software Development Kit License (proprietary, distributed by Google) | Google sign-in and Drive authorisation for Drive sync (ADR 0004) |
+
+Google Play services is not GPL-compatible source code; like upstream's `play-services-location`, it is a platform library supplied through Google Play services on the device, which μField links against as upstream already does. The μField and Mergin code stays GPL. A build for devices without Play services (e.g. F-Droid) would have to leave out Drive sync and location from Play services; record that decision in an ADR if it comes up.
+
+Qt Network and Qt Core (`ufield/storage`) are already upstream dependencies. Planned: qtkeychain (BSD-3-Clause, ADR 0002).
 
 ## Server (`server/`, direct dependencies)
 

@@ -445,6 +445,8 @@ message(STATUS "QGIS_QUICK_DATA_PATH set to ${QGIS_QUICK_DATA_PATH}")
 # ########################################################################################
 
 add_subdirectory(core)
+# UFIELD: μField storage (Google Drive sync), linked into the app
+add_subdirectory(ufield/storage)
 add_subdirectory(app)
 if (ENABLE_TESTS)
   add_subdirectory(test)
