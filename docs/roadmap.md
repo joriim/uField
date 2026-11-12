@@ -45,7 +45,7 @@ Several of these have lead times of days to weeks, so start them first.
 - [ ] CDSE account for the server; confirm openEO client-credentials login (ADR 0002 §7) and whether serving app users from one account fits CDSE's terms.
 - [ ] Anthropic (Claude) as the model provider: API account, commercial terms and DPA; check data retention and processing location options.
 - [ ] Cloud speech-to-text provider: record 30–50 real field notes in Finnish (some in English), run them through candidate batch APIs, compare word error rate on field vocabulary and cost; then sign a DPA and confirm EU processing, no training on customer audio and deletion on request.
-- [ ] Server hosting in the EU (GDPR) and its secret manager.
+- [ ] Server hosting in the EU (GDPR) and its secret manager. Proposal: per-customer servers plus a public data hub, data in Finland (ADR 0005).
 
 **Design fixes from the first review** (all in `schema/tools.json` and `config/layers.yaml`)
 - [x] One Farm Pack contents vocabulary shared by both files (`ortho_cir`, `water`, `nature`); checked by `scripts/validate_schema`.
@@ -101,7 +101,8 @@ Several of these have lead times of days to weeks, so start them first.
 ## Phase 3 — ufield-server (parallel with phase 2)
 
 - [x] Python project in `server/` (`uv`, `pytest`) with `ToolDispatcher` (schema, `x-ufield-rules`, credential-free URLs); tests in CI.
-- [ ] Container image, deploy to the chosen EU host from CI.
+- [ ] Container image, deploy to the chosen EU host from CI; one image, configuration per customer instance (ADR 0005 §1).
+- [ ] Customer server isolation: default-deny firewall, outbound allowlist, no directory join, admin over WireGuard (ADR 0005 §2).
 - [ ] Sign-in: Google ID token → server session (ADR 0002 §6); per-user and global rate limits.
 - [ ] Secrets loaded from the environment per the registry's `auth` section; startup fails if missing.
 - [ ] Authenticated proxy for `via_server` layers: MML via HTTP Basic, capabilities rewritten, cache without keys.
@@ -216,6 +217,9 @@ See `docs/adr/0003-claude-notes-and-voice.md`. Given notes (typed) can ship in p
 - OneDrive and MerginCE storage; users connecting their own CDSE account (new ADR).
 - Planet Agriculture as the first paid imagery (licence terms first, `layer-sources.md` §3).
 - Product workers (orthomosaic, 3DGS, super-resolution) behind the existing `request_product` interface.
+- Public data hub: shared, grid-based cache of open data; export guard on customer servers, signed index, contribute/consume switches (ADR 0005 §3).
+- Field event timing product: regional calendar (tier A) and per-parcel events (tier B) with a release gate; Planet and UP42 terms on derivatives confirmed first (ADR 0006).
+- Field event evidence: farmer's reports, machine logs (ISO-XML, GeoJSON, GPX, phone track) and satellite evidence with evidence levels (ADR 0007). `record_field_event` and `import_machine_log` work without the server; whether they enter the MVP is open.
 
 ## Main risks
 
@@ -228,4 +232,6 @@ See `docs/adr/0003-claude-notes-and-voice.md`. Given notes (typed) can ship in p
 | Play policy findings (permissions, data safety, AI features) | Release delayed | Draft declarations in phase 7, not at submission; foreground-only location; photo picker |
 | Name conflict found late | Rebrand after launch; package id fixed forever | Trademark search in phase 0 before first upload |
 | LLM / STT cost per active user | Unsustainable voice feature | Per-user limits; batch STT pricing; notes-only mode needs no LLM; measure in closed testing |
+| Paid imagery terms don't allow sharing derived event dates | Field event product limited to open data and reports | Written confirmation from Planet and UP42 providers before building the release gate (ADR 0006) |
+| Shared data leaks customers' interests or farmers' event timing | Trust and GDPR issues | Fixed grid, batched and delayed uploads, aggregation thresholds, consent records (ADR 0005, 0006) |
 | Cloud STT not accurate enough in Finnish field vocabulary | Poor voice notes | Test providers on real recordings in phase 0; audio always kept, so notes can be re-transcribed with a better model |

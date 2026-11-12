@@ -161,3 +161,5 @@ Not found as a public service. The domain `peltoraportti.fi` doesn't resolve. **
 - Which Planet country tier applies to Finland, and does the licence allow showing raw imagery to farmers?
 - Commercial CDSE quota needs once there are more than about 50 active farms.
 - Metsäkeskus and SYKE per-dataset licences: confirm CC BY 4.0 before public release.
+- Do Planet's terms (Agriculture package and Insights Platform) and each UP42 provider's EULA allow giving non-reversible derivatives (field event dates, regional aggregates) to third parties? (ADR 0006 §2)
+- MML's position on a shared cache across customers and on regional preloading through the file service (ADR 0005).
